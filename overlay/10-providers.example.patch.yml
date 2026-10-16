@@ -1,0 +1,33 @@
+# ============================================================================
+# Deployment layer (example) — mounted at /etc/dsbot/overlay/, applied after
+# every image layer, so it wins.
+#
+# Files are applied in name order: 10- before 20-. Copy this to
+# 10-providers.patch.yml and edit it.
+#
+# Anything here is a normal dsh cordis patch — the same format the DSH settings
+# UI writes, except this one lives in the image, is mounted read-only and has
+# the highest priority. Put provider keys in the secrets file, not here: name
+# the environment variable with apiKeyEnv and let the entrypoint export it.
+# ============================================================================
+
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      my-gateway:
+        displayName: My Gateway
+        apiKeyEnv: MY_GATEWAY_API_KEY
+        api: openai-completions
+        baseURL: https://api.example.com/v1
+        models:
+          - id: some-model
+            name: Some Model
+            contextWindow: 200000
+
+# The model new sessions and new Bots start on.
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: my-gateway
+    model: some-model

@@ -1,0 +1,29 @@
+# dsh plugins declared by the deployment layer. The entrypoint runs
+# `dsbot-plugins sync` on every start: anything already installed is skipped
+# without touching the network, only missing plugins are installed. Copy this to
+# plugins.txt next to it to take effect.
+#
+# One spec per line; `#` starts a comment.
+#
+#   some-plugin@1.2.3          npm package, pinned: a different installed
+#                              version is replaced
+#   some-plugin                npm package, unpinned: install once, then leave it
+#   @scope/pkg@^2.0.0          scoped names work the same way
+#   my-plugin                  a directory in overlay/plugins/my-plugin
+#   /mnt/elsewhere/other       explicit path (relative paths resolve against
+#                              this file)
+#
+# Local directories are staged into the volume at /data/.overlay-plugins/<name>
+# (node_modules and .git are skipped) and then linked, because pnpm cannot write
+# into a read-only mount.
+#
+# Inside the container:
+#   dsbot-plugins list
+#   dsbot-plugins sync --dry-run
+#   dsbot-plugins sync --force      # restage local plugins
+#
+# A plugin declared here and removed at runtime is installed again on the next
+# start. If that is not what you want, bake it into the image instead.
+
+# some-plugin@1.2.3
+# my-local-plugin
