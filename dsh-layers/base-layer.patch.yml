@@ -1,0 +1,39 @@
+# ============================================================================
+# Image base layer, injected by the entrypoint as a CLI patch (`--patch`).
+#
+# Patch order, lowest to highest (later overrides earlier):
+#   1. bundle layer, including every plugin the deployment layer installs
+#   2. the volume profile: $DSH_HOME/profiles/web/cordis.patch.yml — this is the
+#      file the DSH settings UI writes to
+#   3. this file (image base)
+#   4. the bundled plugins' own bundle patches (shutup, login gate)
+#   5. /etc/dsbot/overlay.yml and /etc/dsbot/overlay/*.patch.yml (sorted by name)
+#
+# Because this file outranks the volume, it may only hold two kinds of entries:
+#   a. insert rows for plugins that ship in the image (ds-bot and its web-search)
+#   b. config nobody is expected to change (here: the update check)
+# Providers, default models and anything the UI can change belong in the
+# overlay, or the UI would write settings that have no effect.
+# ============================================================================
+
+# --- ds-bot and its web-search companion -------------------------------------
+- insert:
+    - id: bot
+      name: ds-bot
+    - id: web-search-auto
+      name: ds-bot/web-search
+
+# --- config that must not follow the volume ----------------------------------
+# ds-bot's version follows the image; its self-update check cannot work on a
+# read-only root anyway. Its config is a plain object, so this override does not
+# drop any other key.
+- id: bot
+  config:
+    updateCheck: false
+
+# ds-bot's web row. A config override replaces the whole entry, so fetchProvider
+# is restated; override this row in the overlay to switch to exa or perplexity.
+- id: web
+  config:
+    searchProvider: auto
+    fetchProvider: http
