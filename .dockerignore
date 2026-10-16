@@ -1,0 +1,7 @@
+.jj/
+.git/
+data/
+docs/
+secrets.env
+overlay/
+*.md

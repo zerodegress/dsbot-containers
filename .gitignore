@@ -1,0 +1,8 @@
+# runtime state
+data/
+secrets.env
+
+# local deployment layers (keep the examples)
+overlay/*.patch.yml
+overlay/plugins.txt
+!overlay/*.example.patch.yml
