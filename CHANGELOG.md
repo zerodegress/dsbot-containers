@@ -17,9 +17,16 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   volumes with `--network none`, including the ds-bot shadowing and drift cases.
 - The image prints `/etc/dsbot-recipe` next to `/etc/dsbot-versions`: one line per
   artifact, and where it came from.
+- The build asserts that `ds-bot` exposes its `web-search` subpath and that the base
+  layer's `web-search-auto` row lands in the composed tree, so a version bump that
+  renames or drops that bundle fails the build instead of leaving a row that points
+  nowhere.
 
 ### Changed
 
+- The build-time base sanity check follows the base this repository pins: it requires
+  node `>= 22.22.2` (what the default `NPM_VERSION=12` needs) instead of `>= 22.19`, so a
+  base that cannot install npm 12 fails at step 0 instead of at the npm upgrade.
 - Patch order: everything the image carries — the base layer and the bundled plugins'
   bundle patches — is applied **last**, after the deployment layer, so a mounted overlay
   can tune the volume profile but cannot override what the image pins (the rows it

@@ -55,9 +55,11 @@ ENV DSH_HOME=/data \
     LANG=zh_CN.UTF-8 \
     DEBIAN_FRONTEND=noninteractive
 
-# --- 0. base sanity: node >= 22.19; the tools layer is optional --------------
+# --- 0. base sanity: node >= 22.22.2; the tools layer is optional ------------
+# The floor follows the base this repository pins: npm 12 (the default
+# NPM_VERSION) needs node ^22.22.2, so a base below that cannot install it.
 RUN set -eux; \
-    node -e "const [a,b]=process.versions.node.split('.').map(Number); if(a<22||(a===22&&b<19)) { console.error('node '+process.versions.node+' < 22.19'); process.exit(1) }"; \
+    node -e "const [a,b,c]=process.versions.node.split('.').map(Number); if(a<22||(a===22&&b<22)||(a===22&&b===22&&c<2)) { console.error('node '+process.versions.node+' < 22.22.2 (npm '+(process.env.NPM_VERSION||'')+' needs node ^22.22.2)'); process.exit(1) }"; \
     if [ -f /opt/tools-version ]; then echo "base: tools layer"; cat /opt/tools-version; \
     else echo "base: bare (no /opt/tools-version) — building a tool-less image"; fi
 
@@ -113,7 +115,7 @@ RUN set -eux; \
     tar -xzf "ds-bot-${DS_BOT_VERSION}.tgz" --strip-components=1 -C "$D/node_modules/ds-bot"; \
     rm -f "ds-bot-${DS_BOT_VERSION}.tgz"; \
     D="$D" V="$DS_BOT_VERSION" node -e "const fs=require('fs'),p=process.env.D+'/package.json',j=JSON.parse(fs.readFileSync(p,'utf8'));j.dependencies['ds-bot']=process.env.V;fs.writeFileSync(p,JSON.stringify(j,null,2))"; \
-    node -e "require.resolve('ds-bot',{paths:['$D/node_modules']}); console.log('ds-bot resolvable:', require('$D/package.json').dependencies['ds-bot'])"
+    node -e "for (const m of ['ds-bot','ds-bot/web-search']) require.resolve(m,{paths:['$D/node_modules']}); console.log('ds-bot resolvable (web-search subpath included):', require('$D/package.json').dependencies['ds-bot'])"
 
 # --- 5. login gate (dsh-auth-gate): default token mode, fail-closed ----------
 # It imports yaml and zod, which the dsh tree does not carry, so those two are
@@ -175,18 +177,23 @@ COPY scripts/dsbot-plugins.js /usr/local/bin/dsbot-plugins
 RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/dsbot-plugins \
  && node --check /usr/local/bin/dsbot-plugins
 
-# Self-check the base layer: it must apply and must land both the ds-bot row and
-# its config override. --dump-config composes the tree without starting dsh.
+# Self-check the base layer: it must apply and must land the ds-bot row, the
+# web-search row and the bot config override. --dump-config composes the tree
+# without starting dsh.
 RUN set -eux; \
     mkdir -p /opt/verify; \
     DSH_HOME=/opt/verify dsh --profile web --patch /opt/dsh-layers/base-layer.patch.yml --dump-config > /opt/verify/dump.yml; \
     grep -q 'ds-bot' /opt/verify/dump.yml; \
+    if ! grep -q 'web-search-auto' /opt/verify/dump.yml; then \
+      echo "base layer did not insert the web-search row (ds-bot/web-search); dump excerpt:"; \
+      grep -n -B2 -A4 'web-search' /opt/verify/dump.yml | head -40; exit 1; \
+    fi; \
     if ! grep -q 'updateCheck' /opt/verify/dump.yml; then \
       echo "base-layer config override for id 'bot' did not land; dump excerpt:"; \
       grep -n -A4 -B2 'bot' /opt/verify/dump.yml | head -40; exit 1; \
     fi; \
     rm -rf /opt/verify; \
-    echo "base layer applies, registers ds-bot, and lands the bot config override"
+    echo "base layer applies, registers ds-bot and web-search, and lands the bot config override"
 
 RUN set -eux; \
     tools_meta='bare'; \
