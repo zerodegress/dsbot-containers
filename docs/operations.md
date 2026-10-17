@@ -19,12 +19,15 @@ no token is generated.
 Everything version-related is a build argument, so an upgrade is a rebuild:
 
 ```sh
-podman build -t ghcr.io/zerodegress/dsbot-containers:0.1.7 \
+podman build -t ghcr.io/your-org/dsbot-containers:0.1.7 \
   --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \
   --build-arg DSH_VERSION=0.2.0-rc.2 \
   --build-arg DS_BOT_VERSION=0.1.7 .
 podman compose up -d
 ```
+
+The compose file takes the image from `DSBOT_IMAGE` (`dsbot-containers:0.1.7` by
+default), so a deployment that builds under another name only sets that variable.
 
 The tool image only needs rebuilding when the tools change; it is the expensive layer
 (one to two hours cold, seconds from cache). Bumping dsh or ds-bot alone is a quick

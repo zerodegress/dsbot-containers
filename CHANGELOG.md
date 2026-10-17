@@ -9,6 +9,15 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 ## [Unreleased]
 
+### Added
+
+<!-- forge:changelog-added -->
+- OCI image labels, so a registry listing describes the image on its own.
+- `scripts/entrypoint-test.mjs`: the entrypoint regression runs on temporary
+  volumes with `--network none`, including the ds-bot shadowing and drift cases.
+- The image prints `/etc/dsbot-recipe` next to `/etc/dsbot-versions`: one line per
+  artifact, and where it came from.
+
 ### Changed
 
 - The tool image defaults to a `core` pack: documents, PDF, images, browsers and
@@ -21,6 +30,18 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   (`docker.io/library/node:22.19-bookworm-slim`) so podman's short-name
   resolution cannot reject it, and re-declares `BASE_IMAGE` inside the stage
   where the provenance stamp reads it.
+<!-- forge:changelog-changed -->
+- `DS_BOT_VERSION` moves to `0.1.7`.
+- npm is upgraded to `NPM_VERSION` (default 12) before dsh is installed, and the
+  dsh install passes `--allow-scripts` with the exact list the native modules
+  need. The base image ships npm 10.9.3, which has no such option; the upstream
+  reference gets it from node 24 without noticing.
+- The entrypoint reports the ds-bot version dsh will actually load, resolving the
+  installation anchor first the way `resolveBundleDir` does, and names a volume
+  copy that can never win. It does not try to reinstall: on this model that would
+  be a silent no-op. `STRICT_DS_BOT_VERSION=1` makes drift fatal.
+- `compose.yaml` sets `stop_grace_period: 30s` and documents the podman-socket
+  group instead of leaving the mount unexplained.
 
 ### Fixed
 
@@ -59,5 +80,5 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   provider keys.
 - Tool image smoke test (`tools/doctor.sh`).
 
-[Unreleased]: https://github.com/zerodegress/dsbot-containers/compare/v0.1.6...HEAD
-[0.1.6]: https://github.com/zerodegress/dsbot-containers/releases/tag/v0.1.6
+[Unreleased]: ../../compare/v0.1.6...HEAD
+[0.1.6]: ../../releases/tag/v0.1.6

@@ -5,7 +5,7 @@ A reproducible container image for [DeepSeek Harness](https://github.com/deepsee
 with memory, group chats and a main Bot that runs the show.
 
 ```
-ghcr.io/zerodegress/dsbot-containers:0.1.6
+ghcr.io/your-org/dsbot-containers:0.1.6
 ```
 
 The image pins every version, keeps all state in one volume, and lets a deployment

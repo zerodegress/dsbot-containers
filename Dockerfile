@@ -17,10 +17,18 @@ ARG TOOLS_IMAGE=docker.io/library/node:22.19-bookworm-slim
 FROM ${TOOLS_IMAGE}
 
 ARG DSH_VERSION=0.2.0-rc.2
+# forge:npm-arg — the --allow-scripts flag below is enforced by npm itself.
+# The base image (node 22.19) ships npm 10.9.3, whose config definitions have
+# no allow-scripts key at all (only allow-same-version); the key appears in npm
+# 12. The upstream reference installs from node 24, npm 11.3.0, and never
+# notices. This image upgrades npm first and then proves the upgrade took.
+ARG NPM_VERSION=12
 ARG DS_BOT_VERSION=0.1.6
 ARG AUTH_GATE_VERSION=0.17.4
 # link-fgfgui/dsh-shutup is unmaintained; we track our own fork of it.
-ARG SHUTUP_REPO=https://github.com/zerodegress/dsh-shutup
+# The default is a placeholder: a deployment must pass its own fork here
+# (--build-arg SHUTUP_REPO=…), because SHUTUP_SHA256 only verifies that fork.
+ARG SHUTUP_REPO=https://github.com/your-org/dsh-shutup
 ARG SHUTUP_COMMIT=4d4aeb6759f23991290e6227b57a9b8594f04202
 ARG SHUTUP_SHA256=f457899a489dcaee62e86ed0e6cdf856d00f2d7292007270a54f6ddfdebef5db
 ARG INSTALL_SHUTUP=1
@@ -80,7 +88,12 @@ RUN set -eux; \
 # root, and that redirection must not apply here. dsh has to live in the image,
 # not in the volume, or mounting a volume over /data would hide it.
 RUN set -eux; \
-    npm install -g --prefix /usr/local "pnpm@10" "@deepseek-ai/dsh@${DSH_VERSION}"; \
+    npm install -g --prefix /usr/local "npm@${NPM_VERSION}"; \
+    test "$(npm --version | cut -d. -f1)" -ge 11 || { \
+      echo "npm $(npm --version) has no --allow-scripts; set NPM_VERSION to 11 or newer" >&2; exit 1; }; \
+    # forge:allow-scripts — the whitelist is enforced by npm here.
+    npm install -g --prefix /usr/local "pnpm@10" "@deepseek-ai/dsh@${DSH_VERSION}" \
+        --allow-scripts=@deepseek-ai/dsh-subprocess-local,node-pty,koffi,@google/genai,protobufjs; \
     test -f /usr/local/lib/node_modules/@deepseek-ai/dsh/package.json; \
     dsh --version; \
     npm cache clean --force; rm -rf /root/.npm
@@ -184,7 +197,14 @@ RUN set -eux; \
       "$DS_BOT_VERSION" "$DSH_VERSION" "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
       "$tools_meta" "$(date -u +%FT%TZ)" \
       > /etc/dsbot-versions; \
-    cat /etc/dsbot-versions
+    cat /etc/dsbot-versions; \
+    # forge:recipe — one line per artifact, and where it came from.
+    printf 'dsh %s\nds-bot %s\nnpm %s\nscripts %s\ndsh-auth-gate %s\ndsh-shutup %s\nshutup_commit %s\ntools %s\nbuilt %s\n' \
+      "$DSH_VERSION" "$DS_BOT_VERSION" "$(npm --version 2>/dev/null || echo unknown)" "${scripts_meta:-unknown}" \
+      "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
+      "$tools_meta" "$(date -u +%FT%TZ)" \
+      > /etc/dsbot-recipe; \
+    cat /etc/dsbot-recipe
 
 # --- 10. runtime identity: non-root, everything writable lives in /data ------
 RUN set -eux; \
@@ -196,6 +216,15 @@ RUN set -eux; \
 
 USER 10001:10001
 WORKDIR /data/bot/workspace
+# forge:oci-labels — a registry listing should describe the image on its own.
+# IMAGE_SOURCE is the OCI source label; it defaults to a placeholder, so a
+# deployment passes --build-arg IMAGE_SOURCE=<its own repository URL>.
+ARG IMAGE_SOURCE=https://github.com/your-org/dsbot-containers
+LABEL org.opencontainers.image.title="dsbot-containers" \
+      org.opencontainers.image.description="DS Bot on DeepSeek Harness: dsh web plus the bundled shutup and login-gate pair, non-root on a read-only root" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
 VOLUME ["/data"]
 EXPOSE 3080
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

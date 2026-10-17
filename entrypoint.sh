@@ -98,6 +98,74 @@ if [ -d /etc/dsbot/overlay ]; then
     done
 fi
 
+
+# forge:reconcile — the ds-bot model this image uses; see docs/recipes.md
+# --- 1b. ds-bot: what dsh will actually load vs what the image carries -------
+# ds-bot is a carried package of the dsh installation, and dsh resolves a bundle
+# from the installation anchor BEFORE the profile directory
+# (@deepseek-ai/dsh-app-boot: resolveBundleDir() walks [installAnchor,
+# <profile>/package.json]). So the copy here is the one that runs, and a copy
+# that an older volume has under profiles/web/node_modules/ds-bot is shadowed —
+# it is never the version that starts. The upstream image (github.com/
+# Fei2411/DeepSeek-Bot, docker/entrypoint.sh:30-36) installs ds-bot into the
+# profile instead and reinstalls it there on version drift; on this model that
+# write would be a silent no-op, which is why the check below resolves the
+# package the way dsh does and reports the answer instead of "fixing" it.
+# The root is read-only (non-root runtime), so a carried package cannot be raised at
+# runtime either: the only lever is DS_BOT_VERSION at build time. This step
+# exists to make a mismatch loud, never to work around it.
+ds_bot_resolve() { # package-name -> dir the Node loader would import, or empty
+    pkg="$1"
+    dsh_bin="$(command -v dsh 2>/dev/null || true)"
+    [ -n "$dsh_bin" ] || return 0
+    dsh_bin="$(readlink -f "$dsh_bin" 2>/dev/null || printf '%s' "$dsh_bin")"
+    dsh_root="$(dirname "$(dirname "$dsh_bin")")"
+    dir="$dsh_root"
+    while [ -n "$dir" ]; do
+        for cand in "$dir/node_modules/$pkg" "$dir/$pkg"; do
+            if [ -f "$cand/package.json" ]; then printf '%s' "$cand"; return 0; fi
+        done
+        [ "$dir" = "/" ] && break
+        dir="$(dirname "$dir")"
+    done
+}
+
+image_ds_bot="$(sed -n 's/^dsbot=//p' /etc/dsbot-versions 2>/dev/null | head -1)"
+resolved_dir=$(ds_bot_resolve ds-bot)
+resolved_ds_bot=""
+if [ -n "$resolved_dir" ]; then
+    resolved_ds_bot=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$resolved_dir/package.json" 2>/dev/null | head -1 || true)
+    log "ds-bot: dsh will load $resolved_dir (version ${resolved_ds_bot:-unknown})"
+fi
+
+profile_pkg="$DSH_HOME/profiles/web/node_modules/ds-bot/package.json"
+profile_ds_bot=""
+[ -f "$profile_pkg" ] && profile_ds_bot=$(sed -n \
+    's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_pkg" 2>/dev/null | head -1 || true)
+case "$resolved_dir" in
+    "$DSH_HOME"/profiles/*)
+        log "ds-bot: the carrying dsh resolves it from the profile, not the image"
+        ;;
+    *)
+        if [ -n "$profile_ds_bot" ]; then
+            log "WARNING: the volume has ds-bot ${profile_ds_bot} under profiles/web/node_modules, but dsh"
+            log "WARNING: resolves the carried copy first; that volume copy is dead weight and ignored."
+        fi
+        ;;
+esac
+# Drift cannot be repaired at runtime on a read-only root. Report, and let the
+# image win; STRICT_DS_BOT_VERSION=1 makes it fatal for deployments that would
+# rather not start than serve a version nobody pinned.
+if [ -n "$image_ds_bot" ] && [ -n "$resolved_ds_bot" ] && [ "$resolved_ds_bot" != "$image_ds_bot" ]; then
+    drift="ds-bot drift: the image carries $image_ds_bot but dsh would load $resolved_ds_bot from $resolved_dir"
+    if [ "${STRICT_DS_BOT_VERSION:-0}" = "1" ]; then die "$drift"; fi
+    log "ERROR: $drift — fix DS_BOT_VERSION and rebuild the image; a runtime reinstall cannot help here."
+fi
+if [ -z "$resolved_ds_bot" ]; then
+    log "WARNING: ds-bot is not resolvable from the dsh installation; the image is broken."
+fi
+
 # Scratch space: /tmp must be a tmpfs under a read-only root; fall back to the
 # volume when it is not mounted.
 TMP="${TMPDIR:-/tmp}"

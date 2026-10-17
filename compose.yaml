@@ -17,15 +17,21 @@ services:
         # tool-less variant. See docs/architecture.md.
         TOOLS_IMAGE: dsbot-tools:bookworm
         DSH_VERSION: "0.2.0-rc.2"
-        DS_BOT_VERSION: "0.1.6"
+        # forge:ds-bot-pin — the image carries ds-bot; a volume copy cannot win.
+        DS_BOT_VERSION: "0.1.7"
         AUTH_GATE_VERSION: "0.17.4"
         # Installed as a pair; setting only one fails the build on purpose.
         INSTALL_SHUTUP: "1"
         INSTALL_AUTH_GATE: "1"
 
-    image: ghcr.io/zerodegress/dsbot-containers:0.1.6
+    # DSBOT_IMAGE overrides the reference image; the default keeps the tag
+    # convention (tag == the ds-bot version the image was built against).
+    image: ${DSBOT_IMAGE:-dsbot-containers:0.1.7}
     container_name: dsbot
+    # forge:grace-period — dsh stops through the entrypoint's TERM trap, which
+    # then waits for it to quiesce; the 10s default is tight for a session flush.
     restart: unless-stopped
+    stop_grace_period: 30s
 
     # Non-root with a read-only root: only /data and the two tmpfs are writable.
     user: "10001:10001"
@@ -35,6 +41,17 @@ services:
       - /run:mode=755,size=16m
     security_opt:
       - no-new-privileges:true
+    # forge:podman-socket — the container is fixed to uid 10001 on a read-only
+    # root, and the socket is a unix socket with mode 0660: group membership is
+    # the whole requirement, no capability and no wider uid. On a rootless host
+    # that group is the host user's:
+    #   stat -c '%u:%g %a' /run/user/$(id -u)/podman/podman.sock
+    # Uncomment with that gid. keep-id is what keeps supplementary groups when
+    # the runtime would drop them; a :ro socket mount breaks it, because
+    # connecting needs write permission on the socket file itself.
+    # group_add:
+    #   - "1000"
+    # userns_mode: keep-id
     cap_drop: [ALL]
 
     environment:
