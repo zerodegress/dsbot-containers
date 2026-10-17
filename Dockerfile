@@ -195,8 +195,8 @@ RUN set -eux; \
       tools_pack="$(sed -n 's/^pack=//p' /opt/tools-version | head -1)"; \
       tools_meta="${tools_rev:-unknown} pack=${tools_pack:-unknown}"; \
     fi; \
-    printf 'dsbot=%s\ndsh=%s\nauth_gate=%s\nshutup=%s\nshutup_commit=%s\ntools=%s\nbuilt=%s\n' \
-      "$DS_BOT_VERSION" "$DSH_VERSION" "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
+    printf 'dsbot=%s\ndsh=%s\nauth_gate=%s\nauth_gate_version=%s\nshutup=%s\nshutup_commit=%s\ntools=%s\nbuilt=%s\n' \
+      "$DS_BOT_VERSION" "$DSH_VERSION" "$INSTALL_AUTH_GATE" "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
       "$tools_meta" "$(date -u +%FT%TZ)" \
       > /etc/dsbot-versions; \
     cat /etc/dsbot-versions; \
