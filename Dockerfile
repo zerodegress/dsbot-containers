@@ -75,8 +75,13 @@ RUN set -eux; \
         .catch(e=>{console.error("version self-check could not reach the registry:",e.message);process.exit(1)})'
 
 # --- 3. dsh itself, pinned ---------------------------------------------------
+# --prefix /usr/local is not redundant: ENV npm_config_prefix points global
+# installs at /data so the agent can install packages at run time on a read-only
+# root, and that redirection must not apply here. dsh has to live in the image,
+# not in the volume, or mounting a volume over /data would hide it.
 RUN set -eux; \
-    npm install -g "pnpm@10" "@deepseek-ai/dsh@${DSH_VERSION}"; \
+    npm install -g --prefix /usr/local "pnpm@10" "@deepseek-ai/dsh@${DSH_VERSION}"; \
+    test -f /usr/local/lib/node_modules/@deepseek-ai/dsh/package.json; \
     dsh --version; \
     npm cache clean --force; rm -rf /root/.npm
 
