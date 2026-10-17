@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TB
   L0["L0 base image<br/>docker.io/library/node:22.19-bookworm-slim"]
-  L1["L1 dsbot-tools<br/>system + CLI + office + Python + Node CLIs<br/>no dsh, no ds-bot"]
+  L1["L1 dsbot-tools<br/>system + CLI + office + Python + Node CLIs<br/>core pack by default, full pack on request<br/>no dsh, no ds-bot"]
   L2["L2 dsbot image<br/>dsh + ds-bot + shutup + login gate + base patch"]
   L3["L3 deployment layer (read-only mount)<br/>/etc/dsbot/overlay/*.patch.yml, plugins.txt"]
   L4["L4 volume (writable)<br/>/data: profiles, bot data, sessions, memory"]

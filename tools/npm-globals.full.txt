@@ -1,0 +1,19 @@
+# The development half of the Node CLIs: bundlers, test runners, linters,
+# formatters, watchers, static servers and CLI cosmetics. Installed only with
+# --build-arg WITH_PACK=full; the core list stays in npm-globals.txt.
+chalk
+concurrently
+eslint
+@faker-js/faker
+http-server
+inquirer
+nodemon
+npm-check-updates
+ora
+@playwright/test
+prettier
+prompts
+serve
+ts-node
+vite
+vitest

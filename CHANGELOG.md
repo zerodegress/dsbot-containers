@@ -9,6 +9,17 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 ## [Unreleased]
 
+### Changed
+
+- The tool image defaults to a `core` pack: documents, PDF, images, browsers and
+  data frames. The scientific/ML/vision/notebook/crawling Python stack and the
+  bundler/linter/test Node CLIs moved behind `--build-arg WITH_PACK=full`
+  (+~2.8GB), which takes the default tool image from 7.5GB to roughly 4.7GB.
+- The tool image names its base image in full
+  (`docker.io/library/node:22.19-bookworm-slim`) so podman's short-name
+  resolution cannot reject it, and re-declares `BASE_IMAGE` inside the stage
+  where the provenance stamp reads it.
+
 ## [0.1.6] - 2026-10-16
 
 ### Added

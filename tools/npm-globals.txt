@@ -3,15 +3,8 @@
 
 typescript
 tsx
-ts-node
-nodemon
 zx
 execa
-eslint
-prettier
-vite
-vitest
-@playwright/test
 playwright
 puppeteer
 @mermaid-js/mermaid-cli
@@ -39,11 +32,6 @@ fast-glob
 rimraf
 cross-env
 lodash
-@faker-js/faker
-chalk
-ora
-prompts
-inquirer
 express
 fastify
 pino
@@ -52,7 +40,3 @@ bcryptjs
 better-sqlite3
 pm2
 node-cron
-concurrently
-serve
-http-server
-npm-check-updates

@@ -21,6 +21,7 @@ part of the contract, both for the build check and for the startup preflight.
 | argument | default | used by |
 |---|---|---|
 | `BASE_IMAGE` | `docker.io/library/node:22.19-bookworm-slim` | `tools/Dockerfile` |
+| `WITH_PACK` | `core` | `tools/Dockerfile` — `full` adds the scientific/ML/vision/notebook/crawling half of the Python stack and the bundler/linter/test half of the Node CLIs (+~2.8GB) |
 | `WITH_HEAVY` | `0` | `tools/Dockerfile` — adds JDK, TeX Live, Go, Rust (+~2.5GB) |
 | `PIP_INDEX_URL` / `NPM_REGISTRY` | upstream | both, for mirrors |
 | `DOCKER_CLI_VERSION` | `27.5.1` | tool image |
@@ -36,6 +37,7 @@ part of the contract, both for the build check and for the startup preflight.
 ## Building and publishing
 
 ```sh
+# core pack by default; add --build-arg WITH_PACK=full for the scientific stack
 podman build -t dsbot-tools:bookworm -f tools/Dockerfile tools
 podman build -t ghcr.io/zerodegress/dsbot-containers:0.1.6 \
   --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \

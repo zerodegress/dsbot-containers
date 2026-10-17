@@ -1,0 +1,29 @@
+# The situational half of the Python stack: scientific computing, ML, computer
+# vision, plotting, notebooks, crawling and cloud SDKs. Installed only with
+# --build-arg WITH_PACK=full; the core list stays in python-requirements.txt.
+# These packages are what the core pack leaves out, and they are ~2.4 GB of the
+# virtualenv, so they are opt-in rather than default.
+boto3
+camelot-py
+ipython
+jupyterlab
+kaleido
+matplotlib
+minio
+onnxruntime
+opencv-python-headless
+oss2
+paramiko
+plotly
+polars
+pyarrow
+rapidocr-onnxruntime
+scikit-learn
+scipy
+scrapy
+seaborn
+selenium
+statsmodels
+tabula-py
+transformers
+wordcloud

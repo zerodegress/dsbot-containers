@@ -6,6 +6,12 @@
 #   docker build -t dsbot-tools:bookworm -f tools/Dockerfile tools
 #   docker build -t dsbot-tools:bookworm-heavy -f tools/Dockerfile tools --build-arg WITH_HEAVY=1
 #
+# WITH_PACK picks how much of the language stacks comes along:
+#   core (default)  documents, PDF, images, web, browsers, data frames
+#   full            adds the scientific/ML/vision/notebook/crawling half of the
+#                   Python stack and the bundler/linter/test half of the Node CLIs
+#                   (+~2.8 GB)
+#
 # Contracts with the dsbot layer (see docs/architecture.md):
 #   * everything here must be readable by a non-root uid: /opt/venv and the
 #     Playwright browsers are chmod a+rX, and no tool may expect to write into
@@ -16,6 +22,7 @@ ARG BASE_IMAGE=docker.io/library/node:22.19-bookworm-slim
 FROM ${BASE_IMAGE}
 
 ARG WITH_HEAVY=0
+ARG WITH_PACK=core
 ARG TZ=Asia/Shanghai
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ARG NPM_REGISTRY=https://registry.npmjs.org
@@ -92,7 +99,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends chromium chromium-driver xvfb; \
     rm -rf /var/lib/apt/lists/*
 
-# --- 5. Python virtualenv ----------------------------------------------------
+# --- 5. Python virtualenv (core) ---------------------------------------------
 COPY python-requirements.txt /tmp/python-requirements.txt
 RUN set -eux; \
     python3 -m venv /opt/venv; \
@@ -101,13 +108,30 @@ RUN set -eux; \
     /opt/venv/bin/playwright install --with-deps chromium; \
     rm -rf /tmp/python-requirements.txt /root/.cache/pip /root/.cache/uv
 
-# --- 6. global Node CLIs -----------------------------------------------------
+# --- 5b. Python extras (WITH_PACK=full) --------------------------------------
+# A separate step so the core layer above stays cacheable.
+COPY python-requirements.full.txt /tmp/python-requirements.full.txt
+RUN set -eux; \
+    [ "$WITH_PACK" = "full" ] || { echo "WITH_PACK=core: skipping the python extras"; exit 0; }; \
+    /opt/venv/bin/pip install -r /tmp/python-requirements.full.txt; \
+    rm -rf /tmp/python-requirements.full.txt /root/.cache/pip /root/.cache/uv
+
+# --- 6. global Node CLIs (core) ----------------------------------------------
 COPY npm-globals.txt /tmp/npm-globals.txt
 RUN set -eux; \
     sed -e 's/#.*$//' /tmp/npm-globals.txt | grep -vE '^[[:space:]]*$' \
       | xargs npm install -g --no-fund --no-audit; \
     npm cache clean --force; \
     rm -rf /tmp/npm-globals.txt /root/.npm
+
+# --- 6b. global Node CLIs extras (WITH_PACK=full) ----------------------------
+COPY npm-globals.full.txt /tmp/npm-globals.full.txt
+RUN set -eux; \
+    [ "$WITH_PACK" = "full" ] || { echo "WITH_PACK=core: skipping the npm extras"; exit 0; }; \
+    sed -e 's/#.*$//' /tmp/npm-globals.full.txt | grep -vE '^[[:space:]]*$' \
+      | xargs npm install -g --no-fund --no-audit; \
+    npm cache clean --force; \
+    rm -rf /tmp/npm-globals.full.txt /root/.npm
 
 # --- 7. duckdb CLI (not packaged by Debian) ----------------------------------
 RUN set -eux; \
@@ -147,8 +171,8 @@ RUN set -eux; \
     find /opt/venv /opt/ms-playwright ! -type d ! -perm -o+r -exec chmod a+r {} +; \
     find /opt/venv /opt/ms-playwright -type d ! -perm -o+rx -exec chmod a+rx {} +; \
     echo "non-world-readable entries left: $(find /opt/venv /opt/ms-playwright ! -perm -o+r 2>/dev/null | wc -l)"; \
-    printf 'tools_revision=%s\nbase_image=%s\nwith_heavy=%s\nbuilt=%s\n' \
-      "$TOOLS_REVISION" "${BASE_IMAGE:-unset}" "$WITH_HEAVY" "$(date -u +%FT%TZ)" > /opt/tools-version; \
+    printf 'tools_revision=%s\nbase_image=%s\npack=%s\nwith_heavy=%s\nbuilt=%s\n' \
+      "$TOOLS_REVISION" "${BASE_IMAGE:-unset}" "$WITH_PACK" "$WITH_HEAVY" "$(date -u +%FT%TZ)" > /opt/tools-version; \
     cat /opt/tools-version
 
 COPY doctor.sh /opt/tools/doctor.sh
