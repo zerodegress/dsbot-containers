@@ -141,8 +141,12 @@ RUN set -eux; \
 # instruction stream above untouched so the expensive layers stay cacheable.
 ARG BASE_IMAGE
 RUN set -eux; \
-    chmod -R a+rX /opt/venv /opt/ms-playwright; \
-    find /opt/venv /opt/ms-playwright -type d -exec chmod a+rx {} +; \
+    # Only touch entries that are not already world-readable: a blanket
+    # chmod -R over these trees copies every file into a new layer (3.4 GB of
+    # pure duplication under overlayfs) for no permission change at all.
+    find /opt/venv /opt/ms-playwright ! -type d ! -perm -o+r -exec chmod a+r {} +; \
+    find /opt/venv /opt/ms-playwright -type d ! -perm -o+rx -exec chmod a+rx {} +; \
+    echo "non-world-readable entries left: $(find /opt/venv /opt/ms-playwright ! -perm -o+r 2>/dev/null | wc -l)"; \
     printf 'tools_revision=%s\nbase_image=%s\nwith_heavy=%s\nbuilt=%s\n' \
       "$TOOLS_REVISION" "${BASE_IMAGE:-unset}" "$WITH_HEAVY" "$(date -u +%FT%TZ)" > /opt/tools-version; \
     cat /opt/tools-version
