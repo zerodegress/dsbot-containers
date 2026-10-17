@@ -5,15 +5,17 @@
 #   1. bundle layer, including every plugin the deployment layer installs
 #   2. the volume profile: $DSH_HOME/profiles/web/cordis.patch.yml — this is the
 #      file the DSH settings UI writes to
-#   3. this file (image base)
-#   4. the bundled plugins' own bundle patches (shutup, login gate)
-#   5. /etc/dsbot/overlay.yml and /etc/dsbot/overlay/*.patch.yml (sorted by name)
+#   3. the bundled plugins' own bundle patches (shutup, login gate)
+#   4. /etc/dsbot/overlay.yml and /etc/dsbot/overlay/*.patch.yml (sorted by name)
+#   5. this file (image base)
 #
-# Because this file outranks the volume, it may only hold two kinds of entries:
+# Because this file outranks everything above, it may only hold two kinds of
+# entries:
 #   a. insert rows for plugins that ship in the image (ds-bot and its web-search)
 #   b. config nobody is expected to change (here: the update check)
-# Providers, default models and anything the UI can change belong in the
-# overlay, or the UI would write settings that have no effect.
+# Providers, default models and anything the UI can change belong in the overlay:
+# this file would win over them, and a setting nobody can change from the
+# deployment layer does not belong in the image either way.
 # ============================================================================
 
 # --- ds-bot and its web-search companion -------------------------------------

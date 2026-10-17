@@ -27,15 +27,15 @@ dsh composes its plugin tree from several layers, and **later layers win**:
 1. bundle layer — dsh's own bundles plus every bundle the deployment layer installs
 2. volume profile — `$DSH_HOME/profiles/web/cordis.patch.yml`, which is the file the
    DSH settings UI writes to
-3. image base layer — `dsh-layers/base-layer.patch.yml`
-4. bundled plugins' own bundle patches — shutup and the login gate
-5. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
+3. bundled plugins' own bundle patches — shutup and the login gate
+4. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
    sorted by file name
+5. image base layer — `dsh-layers/base-layer.patch.yml`
 
-The rule that follows: **the image may only contain insert-style rows and settings
-nobody is expected to change.** Anything the UI can write must not be baked in, or the
-UI would appear to have no effect. Providers, default models and plugin choices belong
-to layer 5.
+The rule that follows: **the deployment layer may tune the volume and the bundled
+plugins, but not the image.** The image base layer is applied last, so it is the last
+word on what it carries: the rows it inserts and the settings nobody is expected to
+change. Providers, default models and plugin choices belong to layer 4.
 
 ## Three ways a plugin reaches a container
 

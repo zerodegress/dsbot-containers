@@ -6,7 +6,7 @@
 #   1. seed the volume from the image on first start
 #   2. bootstrap the login gate token when none was supplied
 #   3. reconcile the plugins declared by the deployment layer
-#   4. compose the patch order (image base -> image plugins -> mounted overlay)
+#   4. compose the patch order (volume -> image plugins -> mounted overlay -> image base)
 #   5. preflight: the login gate must be in the composed tree
 #   6. start, then probe: an unauthenticated request must not get the app shell
 #
@@ -85,9 +85,13 @@ if [ "${SKIP_OVERLAY_PLUGINS:-0}" != "1" ] && [ -x /usr/local/bin/dsbot-plugins 
 fi
 
 # --- 4. patch order: later wins ---------------------------------------------
+# The deployment layer outranks the volume profile, and the image base layer
+# outranks both: what the image pins — the rows it inserts and the settings
+# nobody is meant to change — is the last word, so no mounted patch can undo it.
+# The bundled plugins' patches stay below the deployment layer, because their
+# config is meant to be set from there.
 set -- --profile web
-for f in /opt/dsh-layers/base-layer.patch.yml \
-         /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
+for f in /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
          /opt/dsh-plugins/dsh-auth-gate/cordis.patch.yml \
          /etc/dsbot/overlay.yml; do
     [ -f "$f" ] && set -- "$@" --patch "$f"
@@ -96,6 +100,9 @@ if [ -d /etc/dsbot/overlay ]; then
     for p in $(ls -1 /etc/dsbot/overlay/*.patch.yml 2>/dev/null | sort); do
         set -- "$@" --patch "$p"
     done
+fi
+if [ -f /opt/dsh-layers/base-layer.patch.yml ]; then
+    set -- "$@" --patch /opt/dsh-layers/base-layer.patch.yml
 fi
 
 

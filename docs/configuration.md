@@ -5,7 +5,7 @@ Everything a deployment changes lives in the **overlay**, mounted read-only at
 
 ```sh
 overlay/
-├── 10-providers.patch.yml     cordis patch, applied in name order, wins over the image
+├── 10-providers.patch.yml     cordis patch, applied in name order, above the volume
 ├── 20-ui.patch.yml
 ├── plugins.txt                dsh plugins to install into the volume profile
 └── plugins/my-plugin/         local plugin directories (named in plugins.txt)
@@ -14,8 +14,10 @@ overlay/
 ## Cordis patches
 
 Any `*.patch.yml` in the directory is passed to dsh as `--patch`, in name order, after
-every image layer — so it overrides both the image and the settings UI. Use numeric
-prefixes when the order between your own files matters.
+the volume profile and the bundled plugins — so it overrides the settings UI, but **not
+the image**: `dsh-layers/base-layer.patch.yml` is applied last and has the final word on
+the rows it inserts and the settings nobody is meant to change. Use numeric prefixes when
+the order between your own files matters.
 
 A patch is the normal dsh format; see
 [`examples/10-providers.example.patch.yml`](../examples/10-providers.example.patch.yml).

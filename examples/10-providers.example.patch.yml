@@ -1,14 +1,14 @@
 # ============================================================================
-# Deployment layer (example) — copy it into the mount at /etc/dsbot/overlay/;
-# it is applied after every image layer, so it wins.
+# Deployment layer (example) — copy it into the mount at /etc/dsbot/overlay/; it
+# outranks the volume profile, but not the image base layer.
 #
 # Files are applied in name order: 10- before 20-. Copy this one to
 # overlay/10-providers.patch.yml and edit it. The shipped examples live here in
 # examples/ and are never mounted.
 #
 # Anything here is a normal dsh cordis patch — the same format the DSH settings
-# UI writes, except this one is mounted read-only at the deployment layer and has
-# the highest priority. Put provider keys in the secrets file, not here: name
+# UI writes, except this one is mounted read-only at the deployment layer and
+# outranks the volume. Put provider keys in the secrets file, not here: name
 # the environment variable with apiKeyEnv and let the entrypoint export it.
 # ============================================================================
 
