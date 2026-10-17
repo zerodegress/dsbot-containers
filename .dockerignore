@@ -5,3 +5,5 @@ docs/
 secrets.env
 overlay/
 *.md
+# the image ships its skills, which are markdown: keep them in the context
+!skills/**

@@ -174,7 +174,12 @@ RUN set -eux; \
 COPY dsh-layers/base-layer.patch.yml /opt/dsh-layers/base-layer.patch.yml
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/dsbot-plugins.js /usr/local/bin/dsbot-plugins
+# Skills the image ships: the Bot reads them through skill-filesystem, which the
+# deployment layer points at this directory (customSkillDirs).
+COPY skills/ /opt/dsh-skills/
 RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/dsbot-plugins \
+ && chmod -R a+rX /opt/dsh-skills \
+ && test -f /opt/dsh-skills/dsbot-self-config/SKILL.md \
  && node --check /usr/local/bin/dsbot-plugins
 
 # Self-check the base layer: it must apply and must land the ds-bot row, the
@@ -223,7 +228,7 @@ RUN set -eux; \
     useradd -u 10001 -g 10001 -M -d /data -s /bin/bash dsbot 2>/dev/null || true; \
     mkdir -p /data /etc/dsbot/overlay /data/bot/workspace; \
     chown -R 10001:10001 /data; \
-    chmod -R a+rX /opt/dsh-seed /opt/dsh-plugins /opt/dsh-layers 2>/dev/null || true
+    chmod -R a+rX /opt/dsh-seed /opt/dsh-plugins /opt/dsh-layers /opt/dsh-skills 2>/dev/null || true
 
 USER 10001:10001
 WORKDIR /data/bot/workspace

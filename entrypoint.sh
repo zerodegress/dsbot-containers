@@ -6,7 +6,7 @@
 #   1. seed the volume from the image on first start
 #   2. bootstrap the login gate token when none was supplied
 #   3. reconcile the plugins declared by the deployment layer
-#   4. compose the patch order (volume -> deployment layer -> the image)
+#   4. compose the patch order (base -> deployment layer -> the bot's own -> plugins)
 #   5. preflight: the login gate must be in the composed tree
 #   6. start, then probe: an unauthenticated request must not get the app shell
 #
@@ -85,11 +85,17 @@ if [ "${SKIP_OVERLAY_PLUGINS:-0}" != "1" ] && [ -x /usr/local/bin/dsbot-plugins 
 fi
 
 # --- 4. patch order: later wins ---------------------------------------------
-# The deployment layer outranks the volume profile, and the image outranks both:
-# every patch the image carries — the base layer and the bundled plugins' own
-# bundle patches — is applied last, so nothing mounted at deploy time can undo
-# what the image pins.
+# Applied in this order, lowest first:
+#   image base layer              — the rows that must exist for the instance to run
+#   deployment layer (L3)         — what a deployment decides: providers, models
+#   $DSH_HOME/patches/*.patch.yml — what the Bot writes for itself, in the volume
+#   the bundled plugins' patches  — pinned, so nothing below can undo them
+# dsh still applies the volume profile (profiles/web/cordis.patch.yml, written by
+# the DSH settings UI) before any of these: that file sits at the bottom.
 set -- --profile web
+if [ -f /opt/dsh-layers/base-layer.patch.yml ]; then
+    set -- "$@" --patch /opt/dsh-layers/base-layer.patch.yml
+fi
 if [ -f /etc/dsbot/overlay.yml ]; then
     set -- "$@" --patch /etc/dsbot/overlay.yml
 fi
@@ -98,8 +104,13 @@ if [ -d /etc/dsbot/overlay ]; then
         set -- "$@" --patch "$p"
     done
 fi
-for f in /opt/dsh-layers/base-layer.patch.yml \
-         /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
+# The Bot's own layer: it lives in the volume, so the Bot may add, edit and
+# delete these files, and they outrank the base and deployment layers.
+mkdir -p "$DSH_HOME/patches"
+for p in $(ls -1 "$DSH_HOME/patches"/*.patch.yml 2>/dev/null | sort); do
+    set -- "$@" --patch "$p"
+done
+for f in /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
          /opt/dsh-plugins/dsh-auth-gate/cordis.patch.yml; do
     [ -f "$f" ] && set -- "$@" --patch "$f"
 done

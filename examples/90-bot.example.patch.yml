@@ -1,0 +1,29 @@
+# ============================================================================
+# The Bot's own layer (example) — copy it into $DSH_HOME/patches/, i.e.
+# /data/patches/ in a container.
+#
+# Files there are applied in name order, after the image base layer and the
+# deployment layer, and before the bundled plugins' patches. That makes this the
+# layer that wins over what a deployment set — everything except shutup and the
+# login gate, which the image pins.
+#
+# Patches are read at startup: restart the container after adding one. The image
+# ships a skill, `dsbot-self-config`, with the full order and the rules.
+# ============================================================================
+
+# A row that already exists at this point can be reconfigured. Everything the
+# image base layer inserts (`bot`, `web-search-auto`) exists here, so those are
+# fair game too.
+- id: agent-default-model
+  config:
+    # `config:` replaces the row's whole config object: restate every key you
+    # still rely on.
+    provider: my-gateway
+    model: some-model
+
+# New rows are added instead of patched, with `insert:`:
+#
+# - insert:
+#     - id: my-plugin
+#       name: my-plugin
+#       config: {}

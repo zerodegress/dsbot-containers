@@ -1,0 +1,80 @@
+---
+name: dsbot-self-config
+description: How this ds-bot instance's configuration is layered, where to write a patch that must win, what is pinned by the image or the deployment, and how to verify a change.
+whenToUse: When the user asks to change a provider, a model, a plugin's settings, or any other behavior that comes from configuration rather than code.
+---
+
+# Configuring this instance
+
+This instance composes its configuration from a stack of cordis patch files. **Later
+wins**, so the list below is ordered lowest to highest:
+
+1. bundle layer — the bundles in `profiles/web/package.json` plus each plugin's own
+   `cordis.patch.yml`
+2. the volume profile — `profiles/web/cordis.patch.yml`, the file the DSH settings UI
+   writes to
+3. the image base layer — `/opt/dsh-layers/base-layer.patch.yml`
+4. the deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`
+   (mounted read-only; providers, models and other deployment decisions live here)
+5. **your own layer — `$DSH_HOME/patches/*.patch.yml`, i.e. `/data/patches/`** — applied
+   in name order
+6. the bundled plugins' own patches — shutup and the login gate; nothing below can
+   change what they set
+
+So: to change something and have it stick, write a patch file in `/data/patches/`. A
+patch written anywhere lower (or a setting changed in the settings UI) loses to the
+layers above it.
+
+## Writing a patch
+
+`/data/patches/10-something.patch.yml` is a YAML list, the same format the settings UI
+writes:
+
+```yaml
+# Change one row: it must already exist at this point in the stack, or the patch is
+# dropped with `patch: entry "…" not found`.
+- id: agent-default-model
+  config:
+    provider: my-gateway
+    model: some-model
+```
+
+- `id` is required for a normal patch, and the row must already exist — that is why the
+  image base layer is applied *first* here: it inserts the rows ds-bot needs
+  (`bot`, `web-search-auto`), so everything above can configure them.
+- `name` in a normal patch is a **guard**, not an assignment: if it does not match the
+  target row's name, the whole entry is skipped.
+- Everything else is assigned onto the row key by key, so `config:` **replaces that
+  row's whole config object** — restate every key you still rely on.
+- `insert:` adds entries instead: `- insert: [ {id, name, config} ]` at the top level
+  appends them to the tree; with an extra `id:` on the insert entry it appends into that
+  group's `config` list instead. Inserted rows are indexed immediately, so a later entry
+  in the same file can patch them.
+- Files are applied in name order, so use numeric prefixes (`10-`, `20-`) when the order
+  between your own files matters.
+
+Patches are read at startup: after writing one, restart the container (on the host,
+`podman-compose up -d --force-recreate`) before expecting the change.
+
+## What you cannot change from here
+
+- Providers, models and anything the deployment decided: `/etc/dsbot/overlay/*` is
+  mounted read-only, and a patch cannot remove a row the deployment set either.
+- shutup and the login gate: their patches are applied after yours (layer 6). You can
+  neither reconfigure nor remove the plugins themselves.
+- The root filesystem: it is read-only. Writable paths are the `/data` volume and the
+  tmpfs mounts (`/tmp`, `/run`). There is no container runtime inside: no docker or
+  podman socket.
+
+## Verifying
+
+`dsh --profile web --dump-config` prints the composed tree, and each entry carries a
+comment naming the file it came from:
+
+```sh
+dsh --profile web --dump-config | grep -n -B3 -A6 'id: agent-default-model'
+```
+
+If a row still shows the deployment's value, or the log says `patch: entry "…" not
+found`, the layer above won. Move the change into a patch file in `/data/patches/`, or
+ask the operator to change the image or the deployment layer.

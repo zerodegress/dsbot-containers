@@ -14,10 +14,9 @@ overlay/
 ## Cordis patches
 
 Any `*.patch.yml` in the directory is passed to dsh as `--patch`, in name order, after
-the volume profile — so it overrides the settings UI, but **not the image**: the image's
-own patches (`dsh-layers/base-layer.patch.yml` and the bundled plugins' bundle patches)
-are applied last and keep the last word. Use numeric prefixes when the order between your
-own files matters.
+the image base layer — so it overrides both the settings UI and the base layer, but the
+bundled plugins' own patches (shutup, the login gate) and the Bot's own layer are applied
+after it. Use numeric prefixes when the order between your own files matters.
 
 A patch is the normal dsh format; see
 [`examples/10-providers.example.patch.yml`](../examples/10-providers.example.patch.yml).
@@ -31,6 +30,25 @@ Two things are worth knowing:
 
 Provider keys are referenced by environment variable name (`apiKeyEnv`) and never
 written into the patch. Put the values in the secrets file.
+
+## The Bot's own layer
+
+`$DSH_HOME/patches/*.patch.yml` — `/data/patches/` in a container — is the Bot's own
+configuration layer: the entrypoint creates the directory on every start and passes every
+file in it to dsh in name order, **after the deployment layer and before the bundled
+plugins**. So a Bot can change what the base layer or the deployment layer set, without
+being able to touch the plugins the image pins (shutup, the login gate).
+
+Use it for anything the Bot decides for itself: a model choice, a tool setting, a
+plugin's config. The settings UI writes to `profiles/web/cordis.patch.yml` instead, which
+dsh composes *before* every `--patch` layer — a change made there loses to this one.
+
+```sh
+$DSH_HOME/patches/
+└── 10-my-settings.patch.yml   same format as an overlay patch
+```
+
+Patches are read at startup, so a new file takes effect on the next restart.
 
 ## Plugins
 

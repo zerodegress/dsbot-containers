@@ -47,11 +47,11 @@ podman logs dsbot | head            # prints the login token once
 | L1 | toolchain image (`dsbot-tools`) | `tools/Dockerfile` |
 | L2 | dsh + ds-bot + bundled plugins | `Dockerfile` |
 | L3 | deployment config: providers, models, plugins, any cordis patch | mounted at `/etc/dsbot/overlay`, read-only |
-| L4 | all state: profiles, bot data, sessions, memory | the `/data` volume |
+| L4 | all state: profiles, bot data, sessions, memory; the Bot's own config layer (`patches/`) | the `/data` volume |
 
-dsh applies the volume profile first, then the mounted overlay, and the image's own
-patches last: the deployment tunes the volume, while the image keeps the last word on the
-rows it inserts, the plugins it carries and their settings.
+dsh applies the volume profile first, then the image base layer, the mounted overlay, the
+Bot's own patches in the volume, and finally the bundled plugins' patches: the deployment
+tunes the base, the Bot tunes both, and the plugins the image carries keep the last word.
 [docs/architecture.md](docs/architecture.md) has the full order and the three ways a
 plugin can reach a container.
 

@@ -13,6 +13,13 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 <!-- forge:changelog-added -->
 - OCI image labels, so a registry listing describes the image on its own.
+- The Bot's own configuration layer: `$DSH_HOME/patches/*.patch.yml` is created on every
+  start and passed to dsh after the deployment layer and before the bundled plugins, so a
+  Bot can override the base and the deployment layers without touching what the image
+  pins. `docs/configuration.md` describes it.
+- A skill the image ships, `dsbot-self-config` (`/opt/dsh-skills/`): the layer stack,
+  where a patch has to live to win, the patch format's rules, and how to verify a change
+  with `--dump-config`.
 - `scripts/entrypoint-test.mjs`: the entrypoint regression runs on temporary
   volumes with `--network none`, including the ds-bot shadowing and drift cases.
 - The image prints `/etc/dsbot-recipe` next to `/etc/dsbot-versions`: one line per
@@ -27,13 +34,13 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 - The build-time base sanity check follows the base this repository pins: it requires
   node `>= 22.22.2` (what the default `NPM_VERSION=12` needs) instead of `>= 22.19`, so a
   base that cannot install npm 12 fails at step 0 instead of at the npm upgrade.
-- Patch order: everything the image carries — the base layer and the bundled plugins'
-  bundle patches — is applied **last**, after the deployment layer, so a mounted overlay
-  can tune the volume profile but cannot override what the image pins (the rows it
-  inserts, the plugins it carries and their settings). The web search provider row moved
-  out of the base layer: it is deployment config, and the new order would have pinned it.
-  `docs/architecture.md`, `docs/configuration.md`, `docs/security.md` and the base layer's
-  header state the new order.
+- Patch order is now, lowest first: image base layer → deployment layer → the Bot's own
+  patches → the bundled plugins' patches. The base layer moves below the deployment layer,
+  so a deployment can tune the rows the image inserts; the Bot gets a layer of its own in
+  the volume; shutup and the login gate stay pinned at the top, so neither of the layers
+  below can undo them. The web search provider row stays out of the base layer: it is
+  deployment config. `docs/architecture.md`, `docs/configuration.md`, `docs/security.md`
+  and the base layer's header state the order.
 - The shutup / login-gate pairing is a build-time **warning** instead of a refusal: `INSTALL_SHUTUP=1` with `INSTALL_AUTH_GATE=0` now builds an image with no gate of its own, which is a legitimate choice when an authenticated proxy fronts it. The default pair is unchanged, and `docs/security.md` states the operator's responsibility.
 - The tool image defaults to a `core` pack: documents, PDF, images, browsers and
   data frames. The scientific/ML/vision/notebook/crawling Python stack and the

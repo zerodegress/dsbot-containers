@@ -26,16 +26,19 @@ dsh composes its plugin tree from several layers, and **later layers win**:
 
 1. bundle layer — dsh's own bundles plus every bundle the deployment layer installs
 2. volume profile — `$DSH_HOME/profiles/web/cordis.patch.yml`, which is the file the
-   DSH settings UI writes to
-3. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
+   DSH settings UI writes to (plus the machine-level `$DSH_HOME/cordis.patch.yml`)
+3. image base layer — `dsh-layers/base-layer.patch.yml`
+4. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
    sorted by file name
-4. the image — `dsh-layers/base-layer.patch.yml` and the bundled plugins' own bundle
-   patches (shutup and the login gate)
+5. the Bot's own layer — `$DSH_HOME/patches/*.patch.yml`, sorted by file name
+6. the bundled plugins' own bundle patches — shutup and the login gate
 
-The rule that follows: **the deployment layer may tune the volume, but never the image.**
-Every patch the image carries is applied last, so it is the last word on the rows it
-inserts, on the plugins it carries and on their settings. Providers, default models, the
-web search provider and plugin choices belong to layer 3.
+The rule that follows: **the deployment layer may tune the base, and the Bot may tune
+both — but neither can undo the plugins the image bundles.** Layers 3–5 are the ones a
+container passes as `--patch`; layers 1–2 are what dsh itself composes before them, so
+anything written to the volume profile loses to all of the above. Providers, default
+models, the web search provider and plugin choices belong to layer 4; a change the Bot
+makes for itself belongs to layer 5.
 
 ## Three ways a plugin reaches a container
 
