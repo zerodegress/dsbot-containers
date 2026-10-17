@@ -136,11 +136,15 @@ RUN set -eux; \
     fi
 
 # --- 10. non-root readability + provenance -----------------------------------
+# BASE_IMAGE is declared before FROM, where it is only in scope for FROM itself.
+# Re-declaring it here, next to its only use inside the stage, keeps the
+# instruction stream above untouched so the expensive layers stay cacheable.
+ARG BASE_IMAGE
 RUN set -eux; \
     chmod -R a+rX /opt/venv /opt/ms-playwright; \
     find /opt/venv /opt/ms-playwright -type d -exec chmod a+rx {} +; \
     printf 'tools_revision=%s\nbase_image=%s\nwith_heavy=%s\nbuilt=%s\n' \
-      "$TOOLS_REVISION" "$BASE_IMAGE" "$WITH_HEAVY" "$(date -u +%FT%TZ)" > /opt/tools-version; \
+      "$TOOLS_REVISION" "${BASE_IMAGE:-unset}" "$WITH_HEAVY" "$(date -u +%FT%TZ)" > /opt/tools-version; \
     cat /opt/tools-version
 
 COPY doctor.sh /opt/tools/doctor.sh
