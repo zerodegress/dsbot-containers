@@ -49,9 +49,9 @@ podman logs dsbot | head            # prints the login token once
 | L3 | deployment config: providers, models, plugins, any cordis patch | mounted at `/etc/dsbot/overlay`, read-only |
 | L4 | all state: profiles, bot data, sessions, memory | the `/data` volume |
 
-dsh applies the volume profile first, then the mounted overlay, and the image base layer
-last: the deployment tunes the volume and the bundled plugins, while the image keeps the
-last word on the rows it inserts and on settings nobody is meant to change.
+dsh applies the volume profile first, then the mounted overlay, and the image's own
+patches last: the deployment tunes the volume, while the image keeps the last word on the
+rows it inserts, the plugins it carries and their settings.
 [docs/architecture.md](docs/architecture.md) has the full order and the three ways a
 plugin can reach a container.
 

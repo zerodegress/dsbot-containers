@@ -14,10 +14,10 @@ overlay/
 ## Cordis patches
 
 Any `*.patch.yml` in the directory is passed to dsh as `--patch`, in name order, after
-the volume profile and the bundled plugins — so it overrides the settings UI, but **not
-the image**: `dsh-layers/base-layer.patch.yml` is applied last and has the final word on
-the rows it inserts and the settings nobody is meant to change. Use numeric prefixes when
-the order between your own files matters.
+the volume profile — so it overrides the settings UI, but **not the image**: the image's
+own patches (`dsh-layers/base-layer.patch.yml` and the bundled plugins' bundle patches)
+are applied last and keep the last word. Use numeric prefixes when the order between your
+own files matters.
 
 A patch is the normal dsh format; see
 [`examples/10-providers.example.patch.yml`](../examples/10-providers.example.patch.yml).

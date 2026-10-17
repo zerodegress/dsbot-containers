@@ -1,6 +1,6 @@
 # ============================================================================
 # Deployment layer (example) — copy it into the mount at /etc/dsbot/overlay/; it
-# outranks the volume profile, but not the image base layer.
+# outranks the volume profile, but not the image.
 #
 # Files are applied in name order: 10- before 20-. Copy this one to
 # overlay/10-providers.patch.yml and edit it. The shipped examples live here in

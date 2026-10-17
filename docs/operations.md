@@ -64,7 +64,7 @@ registry). `podman exec dsbot dsbot-plugins sync --dry-run` shows what it would 
 `OVERLAY_PLUGINS_STRICT=0` lets the container start anyway.
 
 **A setting changed in the UI has no effect.** An overlay patch is overriding it: the
-overlay is applied after the volume profile — and the image base layer after that. `dsh
+overlay is applied after the volume profile — and the image's own patches after that. `dsh
 --profile web --dump-config` prints the composed tree with the source file of each entry
 in a comment.
 

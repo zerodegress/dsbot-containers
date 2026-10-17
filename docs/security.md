@@ -51,8 +51,9 @@ The login gate defaults to a shared token. With no `DSH_AUTH_TOKEN` in the secre
 the first start generates 32 random bytes into `/data/auth/token` (0600) and prints it
 once in the container log. Anyone who reads the log or the volume has the token, so treat
 the volume as a secret. For per-user accounts, TOTP, session revocation and a login page,
-override the plugin's config in the overlay (`mode: "password"`, plus
-`pnpm --dir /data/profiles/web exec dsh-auth user add <name> --password-stdin`); see the
+set `mode: "password"` in the gate's own patch **inside the image** — the deployment layer
+cannot override the image — plus
+`pnpm --dir /data/profiles/web exec dsh-auth user add <name> --password-stdin`; see the
 upstream plugin documentation.
 
 `cookieSecure` must match how you serve the site: `true` behind TLS termination, `false`
