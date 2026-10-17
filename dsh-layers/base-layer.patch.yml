@@ -13,7 +13,8 @@
 # A deployment and the Bot both outrank this file; the bundled plugins' patches
 # outrank everything below them. That is why this file may only hold two kinds of
 # entries:
-#   a. insert rows for plugins that ship in the image (ds-bot and its web-search)
+#   a. insert rows for plugins that ship in the image (ds-bot and its web-search,
+#      the image skills provider)
 #   b. config nobody is expected to change (here: the update check)
 # Providers, default models, the web search provider and anything else a deployment
 # or the Bot must be able to tune belong in layers 4 and 5.
@@ -25,6 +26,24 @@
       name: ds-bot
     - id: web-search-auto
       name: ds-bot/web-search
+
+# --- skills baked into the image ---------------------------------------------
+# The image ships its own skills in /opt/dsh-skills and registers them through a
+# second filesystem provider with its own id, so the directory is named here and
+# not inside the agent preset's config (`customSkillDirs` there points at the
+# preset's own skills and the Web editor may rewrite that row).
+# includeDefaultRoots stays off: the preset's instance already scans the default
+# roots, this one only adds `/opt/dsh-skills`, whose candidates rank as "custom"
+# — a Bot can still outrank a baked-in skill with a same-named one in its
+# workspace's `.dsh/skills` or `.agents/skills`.
+- insert:
+    - id: image-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: image-skills
+        includeDefaultRoots: false
+        customSkillDirs:
+          - /opt/dsh-skills
 
 # --- config that must not follow the volume ----------------------------------
 # ds-bot's version follows the image; its self-update check cannot work on a
