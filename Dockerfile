@@ -13,7 +13,7 @@
 # docs/development.md has the version matrix; docs/security.md explains why
 # shutup and the login gate are installed as a pair.
 # =============================================================================
-ARG TOOLS_IMAGE=node:22.19-bookworm-slim
+ARG TOOLS_IMAGE=docker.io/library/node:22.19-bookworm-slim
 FROM ${TOOLS_IMAGE}
 
 ARG DSH_VERSION=0.2.0-rc.2

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TB
-  L0["L0 base image<br/>node:22.19-bookworm-slim"]
+  L0["L0 base image<br/>docker.io/library/node:22.19-bookworm-slim"]
   L1["L1 dsbot-tools<br/>system + CLI + office + Python + Node CLIs<br/>no dsh, no ds-bot"]
   L2["L2 dsbot image<br/>dsh + ds-bot + shutup + login gate + base patch"]
   L3["L3 deployment layer (read-only mount)<br/>/etc/dsbot/overlay/*.patch.yml, plugins.txt"]
@@ -16,7 +16,7 @@ flowchart TB
 ```
 
 L1 is not a hidden implementation detail of L2: because both start from the same
-base image, L2 can be built `FROM dsbot-tools:<tag>` or `FROM node:22.19-bookworm-slim`
+base image, L2 can be built `FROM dsbot-tools:<tag>` or `FROM docker.io/library/node:22.19-bookworm-slim`
 (a tool-less image). The tool image therefore behaves like a prebuilt variant of the
 base, and it is usable on its own as a development container.
 

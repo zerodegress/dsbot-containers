@@ -15,7 +15,7 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 - Two-image build: an L1 toolchain image (`dsbot-tools`) and the L2 dsbot image
   (`dsh` + `ds-bot` + bundled plugins) on top of it. Both start from the same
-  `node:22.19-bookworm-slim` base, so the dsbot image can also be built against a
+  `docker.io/library/node:22.19-bookworm-slim` base, so the dsbot image can also be built against a
   bare base for a tool-less variant.
 - Deployment layer mounted at `/etc/dsbot/overlay`: any number of cordis patch
   files, applied last and therefore authoritative, plus `plugins.txt` to declare
