@@ -18,7 +18,9 @@ every image layer — so it overrides both the image and the settings UI. Use nu
 prefixes when the order between your own files matters.
 
 A patch is the normal dsh format; see
-[`overlay/10-providers.example.patch.yml`](../overlay/10-providers.example.patch.yml).
+[`examples/10-providers.example.patch.yml`](../examples/10-providers.example.patch.yml).
+The examples shipped with the repository live in `examples/` and are never mounted:
+copy the one you want into `overlay/` under its real name.
 Two things are worth knowing:
 
 - A config override **replaces the whole entry**, so restate every key you rely on.

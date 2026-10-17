@@ -96,7 +96,7 @@ docs/recipes.md has the line-by-line comparison with the upstream reference.
 sh -n entrypoint.sh && shellcheck -s sh -S warning entrypoint.sh
 node --check scripts/dsbot-plugins.js
 python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" \
-  compose.yaml dsh-layers/base-layer.patch.yml overlay/10-providers.example.patch.yml
+  compose.yaml dsh-layers/base-layer.patch.yml examples/10-providers.example.patch.yml
 ```
 
 `dsbot-plugins sync --dry-run` with `DSH_BIN` pointing at a stub exercises the reconcile

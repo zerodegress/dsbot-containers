@@ -5,8 +5,7 @@ data/
 secrets.env*
 !secrets.env.example
 
-# local deployment layers (keep the examples)
+# local deployment layers; the shipped examples live in examples/
 overlay/*.patch.yml
 overlay/plugins.txt
 overlay/plugins/
-!overlay/*.example.patch.yml

@@ -1,7 +1,7 @@
 # dsh plugins declared by the deployment layer. The entrypoint runs
 # `dsbot-plugins sync` on every start: anything already installed is skipped
-# without touching the network, only missing plugins are installed. Copy this to
-# plugins.txt next to it to take effect.
+# without touching the network, only missing plugins are installed. Copy it into
+# the deployment layer as plugins.txt to take effect.
 #
 # One spec per line; `#` starts a comment.
 #

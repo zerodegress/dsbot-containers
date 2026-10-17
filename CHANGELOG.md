@@ -53,6 +53,14 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 - `/etc/dsbot-versions` reported the tool layer as `tools=tools_revision=dev`:
   the step read `/opt/tools-version` with `head -1`, which is the key line. It now
   parses `tools_revision` and `pack` and reports `<revision> pack=<pack>`.
+- The gate checks in the entrypoint never ran: `auth_gate=` carried the gate's
+  version while the entrypoint compares that field with `1` (token seeding, the
+  startup preflight and the refusal to serve a gated port). The field now carries
+  the install flag, and `auth_gate_version=` holds the version.
+- The shipped examples sat inside the deployment layer, so a checkout that mounted
+  `./overlay` had `10-providers.example.patch.yml` applied as a live patch — it
+  points the agent default model at a gateway that does not exist. The examples
+  moved to `examples/`; `overlay/` is again only what a deployment puts there.
 
 ## [0.1.6] - 2026-10-16
 
