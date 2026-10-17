@@ -22,7 +22,7 @@ part of the contract, both for the build check and for the startup preflight.
 
 | argument | default | used by |
 |---|---|---|
-| `BASE_IMAGE` | `docker.io/library/node:22.19-bookworm-slim` | `tools/Dockerfile` |
+| `BASE_IMAGE` | `docker.io/library/node:22.22-bookworm-slim` | `tools/Dockerfile` |
 | `WITH_PACK` | `core` | `tools/Dockerfile` — `full` adds the scientific/ML/vision/notebook/crawling half of the Python stack and the bundler/linter/test half of the Node CLIs (+~2.8GB) |
 | `WITH_HEAVY` | `0` | `tools/Dockerfile` — adds JDK, TeX Live, Go, Rust (+~2.5GB) |
 | `PIP_INDEX_URL` / `NPM_REGISTRY` | upstream | both, for mirrors |
@@ -32,7 +32,7 @@ part of the contract, both for the build check and for the startup preflight.
 | `DSH_VERSION` | `0.2.0-rc.2` | `Dockerfile` |
 | `DS_BOT_VERSION` | `0.1.7` | `Dockerfile` |
 | `AUTH_GATE_VERSION` | `0.17.4` | `Dockerfile` — `engines.dsh` is `>=0.2.0-rc.1`, so it covers the pinned dsh |
-| `NPM_VERSION` | `12` | `Dockerfile` — the base image ships npm 10.9.3, which has no `--allow-scripts`; the build upgrades npm first and refuses anything older than 11 |
+| `NPM_VERSION` | `12` | `Dockerfile` — the base image ships npm 10.9.8, which has no `--allow-scripts`; the build upgrades npm first and refuses anything older than 11 |
 <!-- forge:dev-npm -->
 | `SHUTUP_REPO` | `https://github.com/your-org/dsh-shutup` | `Dockerfile` — a **placeholder**: a deployment must pass its own fork here |
 | `SHUTUP_COMMIT` / `SHUTUP_SHA256` | the pinned commit in that fork | `Dockerfile` — the sha256 is checked against whatever `SHUTUP_REPO` serves, so it is meaningless against someone else's fork |

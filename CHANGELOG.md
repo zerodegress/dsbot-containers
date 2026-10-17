@@ -35,7 +35,7 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 - `DS_BOT_VERSION` moves to `0.1.7`.
 - npm is upgraded to `NPM_VERSION` (default 12) before dsh is installed, and the
   dsh install passes `--allow-scripts` with the exact list the native modules
-  need. The base image ships npm 10.9.3, which has no such option; the upstream
+  need. The base image ships npm 10.9.8, which has no such option; the upstream
   reference gets it from node 24 without noticing.
 - The entrypoint reports the ds-bot version dsh will actually load, resolving the
   installation anchor first the way `resolveBundleDir` does, and names a volume
@@ -46,6 +46,10 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 ### Fixed
 
+- The default combination did not build: `NPM_VERSION=12` needs node `^22.22.2`,
+  while the pinned base was node 22.19.0, so the npm upgrade step stopped with
+  `EBADENGINE` before dsh was installed. Both layers now start from
+  `docker.io/library/node:22.22-bookworm-slim`.
 - `/etc/dsbot-versions` reported the tool layer as `tools=tools_revision=dev`:
   the step read `/opt/tools-version` with `head -1`, which is the key line. It now
   parses `tools_revision` and `pack` and reports `<revision> pack=<pack>`.

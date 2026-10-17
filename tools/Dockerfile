@@ -18,7 +18,7 @@
 #     /usr or $HOME — the dsbot layer points every cache at /data.
 #   * LibreOffice ships as -nogui; it conflicts with libreoffice-writer/calc.
 # =============================================================================
-ARG BASE_IMAGE=docker.io/library/node:22.19-bookworm-slim
+ARG BASE_IMAGE=docker.io/library/node:22.22-bookworm-slim
 FROM ${BASE_IMAGE}
 
 ARG WITH_HEAVY=0

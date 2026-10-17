@@ -13,12 +13,12 @@
 # docs/development.md has the version matrix; docs/security.md explains why
 # shutup and the login gate are installed as a pair.
 # =============================================================================
-ARG TOOLS_IMAGE=docker.io/library/node:22.19-bookworm-slim
+ARG TOOLS_IMAGE=docker.io/library/node:22.22-bookworm-slim
 FROM ${TOOLS_IMAGE}
 
 ARG DSH_VERSION=0.2.0-rc.2
 # forge:npm-arg — the --allow-scripts flag below is enforced by npm itself.
-# The base image (node 22.19) ships npm 10.9.3, whose config definitions have
+# The base image (node 22.22) ships npm 10.9.8, whose config definitions have
 # no allow-scripts key at all (only allow-same-version); the key appears in npm
 # 12. The upstream reference installs from node 24, npm 11.3.0, and never
 # notices. This image upgrades npm first and then proves the upgrade took.
