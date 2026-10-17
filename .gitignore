@@ -1,8 +1,12 @@
 # runtime state
 data/
-secrets.env
+
+# secrets stay local, including editor and backup variants; the example is tracked
+secrets.env*
+!secrets.env.example
 
 # local deployment layers (keep the examples)
 overlay/*.patch.yml
 overlay/plugins.txt
+overlay/plugins/
 !overlay/*.example.patch.yml

@@ -23,6 +23,12 @@ services:
         # Installed as a pair; setting only one fails the build on purpose.
         INSTALL_SHUTUP: "1"
         INSTALL_AUTH_GATE: "1"
+        # SHUTUP_REPO has no usable default: the build fetches that fork and
+        # checks it against SHUTUP_SHA256, so a build without it stops there
+        # (404). Uncomment the three and fill in your fork and its commit.
+        # SHUTUP_REPO: https://github.com/your-org/dsh-shutup
+        # SHUTUP_COMMIT: <40-hex commit id>
+        # SHUTUP_SHA256: <sha256 of that commit's tarball>
 
     # DSBOT_IMAGE overrides the reference image; the default keeps the tag
     # convention (tag == the ds-bot version the image was built against).

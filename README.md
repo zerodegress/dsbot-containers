@@ -22,7 +22,11 @@ cp secrets.env.example secrets.env && chmod 600 secrets.env
 mkdir -p data overlay && podman unshare chown -R 10001:10001 data
 
 podman build -t dsbot-tools:bookworm -f tools/Dockerfile tools
-podman build -t dsbot-containers:local --build-arg TOOLS_IMAGE=dsbot-tools:bookworm .
+# SHUTUP_REPO ships as a placeholder on purpose, and the build fetches that fork:
+# without your own fork the shutup step stops the build (404). Pass it here, plus
+# SHUTUP_COMMIT / SHUTUP_SHA256 when your fork does not carry the pinned commit.
+podman build -t dsbot-containers:local --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \
+  --build-arg SHUTUP_REPO=<your shutup fork> .
 
 podman run -d --name dsbot --user 10001:10001 --read-only \
   --tmpfs /tmp:mode=1777 --tmpfs /run:mode=755 \
@@ -33,7 +37,8 @@ podman logs dsbot | head            # prints the login token once
 ```
 
 `podman compose up -d --build` does the same with the arguments in
-[compose.yaml](compose.yaml).
+[compose.yaml](compose.yaml) — that build needs `SHUTUP_REPO` (and usually the matching
+`SHUTUP_COMMIT` / `SHUTUP_SHA256`) in the `args:` list there, for the same reason.
 
 ## Layers
 
