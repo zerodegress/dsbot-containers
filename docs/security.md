@@ -38,6 +38,13 @@ build.
 
 `SKIP_GATE_CHECK=1` turns both runtime checks off. Do not ship a deployment with it.
 
+Building with `INSTALL_SHUTUP=1` and `INSTALL_AUTH_GATE=0` is **allowed**: it
+produces an image with no gate of its own (shutup removes dsh's token gate and no
+login gate replaces it). The build warns and goes on — the operator owns that
+risk: front it with an authenticated proxy (Cloudflare Access, a reverse proxy
+with auth) or keep it on a private network.
+
+
 ## Token mode
 
 The login gate defaults to a shared token. With no `DSH_AUTH_TOKEN` in the secrets file,

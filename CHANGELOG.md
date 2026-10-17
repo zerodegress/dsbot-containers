@@ -20,6 +20,7 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 ### Changed
 
+- The shutup / login-gate pairing is a build-time **warning** instead of a refusal: `INSTALL_SHUTUP=1` with `INSTALL_AUTH_GATE=0` now builds an image with no gate of its own, which is a legitimate choice when an authenticated proxy fronts it. The default pair is unchanged, and `docs/security.md` states the operator's responsibility.
 - The tool image defaults to a `core` pack: documents, PDF, images, browsers and
   data frames. The scientific/ML/vision/notebook/crawling Python stack and the
   bundler/linter/test Node CLIs moved behind `--build-arg WITH_PACK=full`

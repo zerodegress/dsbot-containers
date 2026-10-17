@@ -151,12 +151,14 @@ RUN set -eux; \
     D="$D" node -e "const fs=require('fs'),p=process.env.D+'/package.json',j=JSON.parse(fs.readFileSync(p,'utf8'));j.dependencies['dsh-shutup']=require(process.env.D+'/node_modules/dsh-shutup/package.json').version;fs.writeFileSync(p,JSON.stringify(j,null,2))"; \
     node -e "for (const m of ['dsh-shutup/startup','dsh-shutup','commander','@deepseek-ai/dsh-cmdline']) require.resolve(m,{paths:['$D/node_modules']}); console.log('dsh-shutup resolvable:', require('$D/package.json').dependencies['dsh-shutup'])"
 
-# --- 7. the pair is all-or-nothing -------------------------------------------
+# --- 7. gate pairing: warn, never refuse (the operator owns the risk) ---------
 RUN set -eux; \
     if [ "$INSTALL_SHUTUP" != "$INSTALL_AUTH_GATE" ]; then \
-      echo "refusing to build: INSTALL_SHUTUP=$INSTALL_SHUTUP but INSTALL_AUTH_GATE=$INSTALL_AUTH_GATE"; \
-      echo "shutup removes dsh's own token gate; the login gate is what replaces it."; \
-      exit 1; \
+      echo "WARNING: INSTALL_SHUTUP=$INSTALL_SHUTUP with INSTALL_AUTH_GATE=$INSTALL_AUTH_GATE"; \
+      echo "  shutup removes dsh's own token gate, and the login gate is what replaces it."; \
+      echo "  This image therefore has no gate of its own. Front it with an authenticated"; \
+      echo "  proxy or keep it on a private network, or set both build args the same way."; \
+      echo "  Building anyway: the operator owns that risk." >&2; \
     fi
 
 # --- 8. seed: a clean web profile with only dsh's own bundles ----------------
