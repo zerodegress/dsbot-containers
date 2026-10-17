@@ -50,6 +50,10 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   while the pinned base was node 22.19.0, so the npm upgrade step stopped with
   `EBADENGINE` before dsh was installed. Both layers now start from
   `docker.io/library/node:22.22-bookworm-slim`.
+- The image ran as 10001 but `/data/bot` belonged to root: `WORKDIR` created
+  `/data/bot/workspace` after the `chown -R /data`, so ds-bot could not write its
+  state or its workspace (`EACCES … '~/bot/state.json.tmp'`). The directory is now
+  created before the chown.
 - `/etc/dsbot-versions` reported the tool layer as `tools=tools_revision=dev`:
   the step read `/opt/tools-version` with `head -1`, which is the key line. It now
   parses `tools_revision` and `pack` and reports `<revision> pack=<pack>`.

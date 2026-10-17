@@ -209,10 +209,12 @@ RUN set -eux; \
     cat /etc/dsbot-recipe
 
 # --- 10. runtime identity: non-root, everything writable lives in /data ------
+# /data/bot/workspace is created here, before the chown: WORKDIR below runs after
+# it and would otherwise create the directory as root, which 10001 cannot write.
 RUN set -eux; \
     groupadd -g 10001 dsbot 2>/dev/null || true; \
     useradd -u 10001 -g 10001 -M -d /data -s /bin/bash dsbot 2>/dev/null || true; \
-    mkdir -p /data /etc/dsbot/overlay; \
+    mkdir -p /data /etc/dsbot/overlay /data/bot/workspace; \
     chown -R 10001:10001 /data; \
     chmod -R a+rX /opt/dsh-seed /opt/dsh-plugins /opt/dsh-layers 2>/dev/null || true
 
