@@ -105,3 +105,39 @@ backup of your secrets.
 | `SKIP_GATE_CHECK` | `0` | `1` disables the preflight and the startup probe (debugging only) |
 
 Build-time arguments are listed in [development.md](development.md).
+
+## Where the agent can write
+
+The image puts the cache directories on the volume — `HOME=/data`,
+`XDG_CACHE_HOME=/data/.cache`, `npm_config_cache=/data/.npmcache`,
+`npm_config_prefix=/data/.npm-global`, `PNPM_HOME=/data/.pnpm-home` — so a process started
+by the entrypoint has a writable home. The agent does not: dsh runs each Bot's shell under
+a file sandbox (`workspace-write`), and in the instances we measured the sandbox allows
+only that Bot's own workspace plus `/tmp`.
+
+The permission bits do not show it. `/data` subdirectories owned by the runtime user are
+reported as writable and are still denied:
+
+| path | `test -w` | real `touch` |
+|---|---|---|
+| `/data/.cache` | true | `Permission denied` |
+| `/data/bot/workspace` (parent of the Bot workspace) | true | `Permission denied` |
+| `/data/bot/workspace/<bot>` | true | ok |
+| `/tmp` | true | ok |
+
+Consequences:
+
+- do not gate a health check on `test -w` or `access(2)`; they report the permission bits,
+  not the sandbox. Write a probe file and delete it.
+- a tool that keeps its cache under `$HOME` fails until the path is redirected into the
+  Bot's workspace: `HOME=… XDG_CACHE_HOME=… npm_config_cache=… pnpm --store-dir …
+  UV_CACHE_DIR=…`. LibreOffice needs `-env:UserInstallation=file://…`, Chromium
+  `--user-data-dir=…`.
+- `pip install` into `/opt/venv` fails with `Read-only file system`: that is the read-only
+  root, not the sandbox. Use a venv inside the workspace.
+- Java tools do not follow `$HOME` for `user.home`; they read the passwd entry. Pass
+  `-Duser.home=…` explicitly.
+
+An image-side default (a `source`-able env file) can point those variables at a directory
+the sandbox allows, but the allow-list itself belongs to the dsh deployment, not to this
+image.
