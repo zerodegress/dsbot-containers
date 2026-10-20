@@ -89,6 +89,105 @@ Credentials from the deployment layer end up in the volume: `/data/auth/token` i
 mode, `/data/profiles/web/node_modules` for plugin state. A backup of `/data` is a
 backup of your secrets.
 
+## The sandbox's write set, and where the caches go
+
+The agent shell does not run with the container's full write access. Every command goes
+through dsh's local sandbox, and on Linux that is a Landlock profile whose writable roots
+are hard-coded to exactly three paths:
+
+- the session workspace (the Bot's working directory),
+- `/tmp`,
+- the process's private tmpdir.
+
+There is **no policy setting that adds a root** — `writableRoots()` in
+`@deepseek-ai/dsh-sandbox` returns that fixed list, and `landlockProfileArgs()` in
+`@deepseek-ai/dsh-sandbox-local` turns it into the actual grant. Everything else, including
+`/data` and the rest of the volume, is read-only to the agent even though the container
+mounts it read-write and the files are owned by uid 10001.
+
+Three consequences worth knowing before debugging anything:
+
+1. **`test -w` and `os.access()` lie here.** They ask the kernel's DAC check, which Landlock
+   does not participate in, so `/data/.cache` reports "writable" and then `mkdir` fails with
+   `EACCES`. Any probe in this image has to *really write* something.
+2. **The image's own cache variables are unreachable from the agent.** `HOME=/data`,
+   `npm_config_cache=/data/.npmcache`, `PNPM_HOME=/data/.pnpm-home`, `XDG_CACHE_HOME=/data/.cache`
+   are all outside the grant, so git, npm, pnpm, uv, pip and cargo fail — each with a
+   different, usually misleading, error (npm suggests `sudo chown`, which cannot help).
+3. **Two sizeable installs only need XDG, not HOME.** With `XDG_CONFIG_HOME` (and for
+   LibreOffice also `XDG_CACHE_HOME`) pointed inside the workspace, the bundled Chromium
+   renders and `soffice --headless --convert-to pdf` produces a real PDF. With the image
+   defaults both fail: Chromium with "Failed to create headless user data directory
+   container", LibreOffice with "User installation could not be completed". That is ~1.2 GB
+   of image that was previously installed-but-unusable.
+
+`/opt/dsbot/agent-env.sh` closes the gap: every non-interactive bash sources it through
+`BASH_ENV` and, when it can create the directories, moves `HOME`, the XDG roots and every
+cache into a `.home` tree on the volume (inside the grant, and it survives a restart).
+
+**`HOME` moves with them, inside the agent shell only.** The image and the entrypoint keep
+`HOME=/data`; in the agent shell `HOME` becomes the adopted root. That is what makes git and
+jj work without extra variables, at the cost of one surprise: inside the agent shell `~` is
+no longer `/data`. The container-level `HOME` is unchanged, so nothing outside the shell
+sees the difference.
+
+Which root it picks, most specific first:
+
+| candidate | why |
+|---|---|
+| `DSBOT_AGENT_HOME` | sticky — a child shell that `cd`s elsewhere keeps the same caches |
+| nearest existing `.home` walking up from `$PWD` | so a command run in `docs/` does not grow a second cache tree |
+| `$PWD/.home` | first shell in a workspace |
+
+A candidate is only accepted if its directories can really be created. The walk can leave the
+session workspace and find *another Bot's* `.home`, which looks like a marker and is not
+writable; sharing a cache tree across Bots would be worse than not adopting at all, so a
+failing candidate is skipped and the next one is tried.
+
+It never adopts a tmpfs: `$PWD` under `/tmp`, `/dev/shm` or `/run` is refused outright. Those
+are 256 MB, noexec, or both — a cache tree there fills up and then breaks every later command
+in the session, silently.
+
+Two of the entries are identity files rather than caches, and both are the difference between
+"installed" and "usable": `JJ_CONFIG` and `GIT_CONFIG_GLOBAL`. Neither falls back to
+`XDG_CONFIG_HOME`, and without them `jj config set --user` and `git commit` both fail.
+
+### Where `BASH_ENV` does not reach
+
+The overlay is applied by bash's startup file, so it has two edges worth knowing:
+
+- **`sh -c` does not read `BASH_ENV`.** dash reads `$ENV`, not this, so `sh -c 'npm config
+  get cache'` still reports the image's `/data` path. Use bash, or source the file explicitly.
+- **A child a program spawns with a hand-built environment never sees it.** If a tool
+  constructs `env` from a few variables instead of inheriting, the overlay is absent for that
+  child. That is not a bug to fix here; it is the boundary of this mechanism, and the reason
+  the plugin (per-execution env injection) remains the fallback if bash is ever replaced.
+
+`DSBOT_AGENT_ENV_ALWAYS=1` arms the overlay without a session marker, `DSBOT_NO_AGENT_ENV=1`
+disables it, `DSBOT_AGENT_HOME` pins the root — all three exist so a broken assumption can be
+recovered without rebuilding the image.
+
+The variables in the table below stay as they are: those are what the entrypoint, dsh
+itself and any unsandboxed child use, and they are the list `agent-env.sh` overrides.
+
+The script is deliberately conservative, and its contract is checked at build time:
+
+| behaviour | why |
+|---|---|
+| armed only when `DSH_SESSION_ID` is set | image builds and the entrypoint have no session, so they are unaffected |
+| adopts a directory only after a real `mkdir -p` succeeds | `test -w` cannot see Landlock; a failed probe leaves the environment untouched |
+| never changes `HOME` | it is a shared configuration root; the caches do not need it |
+| prints nothing | it runs before every command in the container |
+| `DSBOT_NO_AGENT_ENV=1` disables it | escape hatch when a tool wants the image's `/data` paths |
+| `DSH_AGENT_ROOT` overrides the anchor | for a shell started outside the workspace |
+
+**Silent failures.** Four tools in this image fail while returning exit code 0 (or with a
+message that looks harmless), so a check that only reads `$?` is worthless: `soffice
+--version` prints nothing, `mtr` cannot open a raw socket without `CAP_NET_RAW`, and
+`dsh --dump-config` prints a row for a module that will not load. Verify by *doing the
+thing and inspecting the artifact* — a written PDF, a written config file, a rendered DOM.
+
+
 ## Environment variables
 
 | variable | default | meaning |
@@ -103,6 +202,12 @@ backup of your secrets.
 | `OVERLAY_PLUGINS_STRICT` | `1` | `0` downgrades a failed plugin install from "refuse to start" to a warning |
 | `SKIP_OVERLAY_PLUGINS` | `0` | `1` skips the plugin reconcile entirely |
 | `SKIP_GATE_CHECK` | `0` | `1` disables the preflight and the startup probe (debugging only) |
+| `BASH_ENV` | `/opt/dsbot/agent-env.sh` | sourced by every non-interactive bash; points XDG and the caches at `<cwd>/.home`, never changes `HOME` |
+| `DSBOT_NO_AGENT_ENV` | `0` | `1` disables the cache overlay for one shell |
+| `DSH_AGENT_ROOT` | `$PWD/.home` | anchor `agent-env.sh` uses when it cannot trust the cwd |
+| `DSBOT_AGENT_HOME` | – | the root the overlay adopted; exported so child shells reuse it |
+| `JJ_CONFIG` | `/data/.config/jj/config.toml` | jj's user config; the overlay points it at `<cwd>/.home/.config/jj/` |
+| `GIT_CONFIG_GLOBAL` | `/data/.config/git/config` | git's global config; the overlay points it at `<cwd>/.home/.config/git/` |
 
 Build-time arguments are listed in [development.md](development.md).
 

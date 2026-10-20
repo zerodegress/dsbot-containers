@@ -50,10 +50,33 @@ ENV DSH_HOME=/data \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
     NPM_CONFIG_FUND=false \
     XDG_CACHE_HOME=/data/.cache \
+    XDG_CONFIG_HOME=/data/.config \
+    XDG_DATA_HOME=/data/.local/share \
+    XDG_STATE_HOME=/data/.local/state \
+    PIP_CACHE_DIR=/data/.cache/pip \
+    UV_CACHE_DIR=/data/.cache/uv \
+    CARGO_HOME=/data/.cargo \
+    RUSTUP_HOME=/data/.rustup \
+    GOPATH=/data/.go \
+    GOMODCACHE=/data/.go/mod \
+    GOCACHE=/data/.go/build \
+    JJ_CONFIG=/data/.config/jj/config.toml \
+    GIT_CONFIG_GLOBAL=/data/.config/git/config \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     LANG=zh_CN.UTF-8 \
     DEBIAN_FRONTEND=noninteractive
+
+# The agent shell runs under a Landlock profile that only grants writes to the
+# session workspace, /tmp and its private tmpdir — the set is hard-coded in dsh
+# (`writableRoots()`), so the /data paths above are unreachable from inside it.
+# Every non-interactive bash therefore sources agent-env.sh, which points XDG and
+# every cache at `<workspace>/.home`. HOME is deliberately left alone: it is the
+# configuration root of dsh and of several tools at once. The variables above
+# stay as they are — they are what the entrypoint, dsh itself and any unsandboxed
+# child use, and they are the list agent-env.sh overrides. See
+# docs/configuration.md.
+ENV BASH_ENV=/opt/dsbot/agent-env.sh
 
 # --- 0. base sanity: node >= 22.22.2; the tools layer is optional ------------
 # The floor follows the base this repository pins: npm 12 (the default
@@ -174,6 +197,11 @@ RUN set -eux; \
 COPY dsh-layers/base-layer.patch.yml /opt/dsh-layers/base-layer.patch.yml
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/dsbot-plugins.js /usr/local/bin/dsbot-plugins
+# agent-env.sh is sourced by every non-interactive bash (BASH_ENV above); it
+# moves HOME and the caches into <workspace>/.home, because the sandbox only
+# grants writes there. It must be readable, silent and harmless when it cannot
+# adopt a directory — the checks below hold it to that.
+COPY scripts/agent-env.sh /opt/dsbot/agent-env.sh
 # Skills the image ships: the Bot reads them through skill-filesystem, which the
 # deployment layer points at this directory (customSkillDirs).
 COPY skills/ /opt/dsh-skills/
@@ -181,6 +209,38 @@ RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/dsbot-plugins \
  && chmod -R a+rX /opt/dsh-skills \
  && test -f /opt/dsh-skills/dsbot-self-config/SKILL.md \
  && node --check /usr/local/bin/dsbot-plugins
+
+# agent-env.sh must be syntax-clean, silent, and behave in exactly four ways:
+# adopt a writable cwd, refuse a tmpfs, leave an unwritable cwd alone, and honour
+# the off switch. This runs as root during the build, so it tests the script's own
+# logic; the sandbox it works around does not exist here, which is why every
+# assertion is about what the script sets rather than whether a write is denied.
+RUN set -eux; \
+    chmod 0755 /opt/dsbot/agent-env.sh; \
+    sh -n /opt/dsbot/agent-env.sh; \
+    test "$BASH_ENV" = /opt/dsbot/agent-env.sh; \
+    # /tmp is a tmpfs and the script refuses those, so the fixture lives in /opt. \
+    ws=/opt/agent-env-selftest; rm -rf "$ws"; mkdir -p "$ws"; \
+    home="$(cd "$ws" && DSH_SESSION_ID=build-selftest bash -c 'printf %s "$HOME"')"; \
+    [ "$home" = "$ws/.home" ] || { echo "agent-env: HOME not adopted, got $home"; exit 1; }; \
+    for v in XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME PIP_CACHE_DIR UV_CACHE_DIR npm_config_cache npm_config_store_dir CARGO_HOME RUSTUP_HOME GOMODCACHE GOCACHE JJ_CONFIG GIT_CONFIG_GLOBAL DSBOT_AGENT_HOME; do \
+      out="$(cd "$ws" && DSH_SESSION_ID=build-selftest bash -c "printf %s \"\$$v\"")"; \
+      [ -n "$out" ] || { echo "agent-env: $v not set"; exit 1; }; \
+      case "$out" in "$ws"/*) ;; *) echo "agent-env: $v does not point inside $ws ($out)"; exit 1;; esac; \
+    done; \
+    for d in .config/git .config/jj .cache/pip .cache/uv .npmcache .pnpstore .npm-global/bin .local/share .local/state .cargo .rustup .go/mod .go/build; do \
+      [ -d "$ws/.home/$d" ] || { echo "agent-env: $ws/.home/$d was not created"; exit 1; }; \
+    done; \
+    out="$(cd /tmp && DSH_SESSION_ID=build-selftest bash -c 'printf %s "$HOME"')"; \
+    case "$out" in /tmp/*) echo "agent-env: adopted a tmpfs ($out)"; exit 1;; esac; \
+    out="$(cd / && DSH_SESSION_ID=build-selftest bash -c 'printf %s "$XDG_CONFIG_HOME"')"; \
+    case "$out" in "$ws"/*) echo "agent-env: adopted a directory it cannot write ($out)"; exit 1;; esac; \
+    out="$(cd "$ws" && DSBOT_NO_AGENT_ENV=1 DSH_SESSION_ID=build-selftest bash -c 'printf %s "$XDG_CONFIG_HOME"')"; \
+    case "$out" in "$ws"/*) echo "agent-env: DSBOT_NO_AGENT_ENV=1 was ignored ($out)"; exit 1;; esac; \
+    out="$(cd "$ws" && DSH_SESSION_ID=build-selftest bash -c 'printf %s "$XDG_CONFIG_HOME"' 2>&1 >/dev/null)"; \
+    [ -z "$out" ] || { echo "agent-env: wrote to stderr, it must be silent: $out"; exit 1; }; \
+    rm -rf "$ws"; \
+    echo "agent-env: adopts a writable cwd, refuses tmpfs, leaves unwritable dirs alone, silent, off switch works"
 
 # Self-check the base layer: it must apply and must land the ds-bot row, the
 # web-search row and the bot config override. --dump-config composes the tree
