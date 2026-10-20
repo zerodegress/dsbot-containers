@@ -82,7 +82,7 @@ if [ "${DSBOT_NO_AGENT_ENV:-0}" != "1" ] && \
                     "$_cand/.npm-global/bin" "$_cand/.local/bin" \
                     "$_cand/.local/share" "$_cand/.local/state" \
                     "$_cand/.cargo" "$_cand/.rustup" \
-                    "$_cand/.go/mod" "$_cand/.go/build" 2>/dev/null; then
+                    "$_cand/.go/mod" "$_cand/.go/build" "$_cand/.go/bin" 2>/dev/null; then
             DSH_AGENT_ROOT="$_cand"
             break
         fi
@@ -110,6 +110,11 @@ if [ "${DSBOT_NO_AGENT_ENV:-0}" != "1" ] && \
 
         CARGO_HOME="$DSH_AGENT_ROOT/.cargo"
         RUSTUP_HOME="$DSH_AGENT_ROOT/.rustup"
+        # GOPATH moves with the module and build caches. Leaving it at the image
+        # default means `go install` writes its binaries outside the grant while
+        # the caches are inside it — the two halves disagree and only the binary
+        # write fails.
+        GOPATH="$DSH_AGENT_ROOT/.go"
         GOMODCACHE="$DSH_AGENT_ROOT/.go/mod"
         GOCACHE="$DSH_AGENT_ROOT/.go/build"
 
@@ -126,7 +131,7 @@ if [ "${DSBOT_NO_AGENT_ENV:-0}" != "1" ] && \
         export HOME XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME \
                PIP_CACHE_DIR UV_CACHE_DIR \
                npm_config_cache npm_config_store_dir npm_config_prefix \
-               CARGO_HOME RUSTUP_HOME GOMODCACHE GOCACHE \
+               CARGO_HOME RUSTUP_HOME GOPATH GOMODCACHE GOCACHE \
                JJ_CONFIG GIT_CONFIG_GLOBAL DSBOT_AGENT_HOME
 
         # PATH: prepend once, never twice (nested shells re-source this).

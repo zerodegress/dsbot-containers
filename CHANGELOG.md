@@ -20,6 +20,8 @@ Image tags carry the DS Bot version the image was built against, so `0.1.7` is
 ### Added
 
 <!-- forge:changelog-added -->
+- `iproute2` in the tools layer, so `ip` and `ss` can diagnose the network without
+  `CAP_NET_RAW` — with no raw socket, they are the only ones that still work.
 - OCI image labels, so a registry listing describes the image on its own.
 - A skill the image ships, `dsbot-self-config` (`/opt/dsh-skills/`): the layer stack,
   the three places a patch can live, the patch format's rules, and how to verify a
@@ -82,6 +84,13 @@ Image tags carry the DS Bot version the image was built against, so `0.1.7` is
 
 ### Fixed
 
+- `GOPATH` stayed at `/data/.go` while `GOMODCACHE` and `GOCACHE` moved into the adopted
+  root, so `go build` worked and `go install` was denied on its own output directory — a
+  report that reads like a broken toolchain. The overlay now sets all three from one root.
+- `doctor.sh` proved only that `/tmp` is writable. It now writes a file into `HOME`,
+  `GOPATH`, `GOMODCACHE` and `GOCACHE` (never `test -w`, which cannot see the sandbox),
+  names a `GOPATH` that sits outside `HOME`, and reports `ip`/`ss` as failures rather than
+  skips.
 - The default combination did not build: `NPM_VERSION=12` needs node `^22.22.2`,
   while the pinned base was node 22.19.0, so the npm upgrade step stopped with
   `EBADENGINE` before dsh was installed. Both layers now start from

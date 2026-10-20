@@ -154,6 +154,15 @@ Two of the entries are identity files rather than caches, and both are the diffe
 "installed" and "usable": `JJ_CONFIG` and `GIT_CONFIG_GLOBAL`. Neither falls back to
 `XDG_CONFIG_HOME`, and without them `jj config set --user` and `git commit` both fail.
 
+Go has three variables that have to move together, and they are the reason the overlay is
+tested rather than assumed. `GOPATH` is not a cache: it is where `go install` writes its
+binaries (`$GOPATH/bin`), while `GOMODCACHE` and `GOCACHE` hold the module and build caches.
+Move the two caches into the workspace and leave `GOPATH` at `/data/.go`, and the split is
+exactly wrong: `go build` works, `go install` fails with `permission denied` on its own
+output directory, and the error reads like a broken toolchain. `agent-env.sh` sets all three
+from the same root, and `doctor.sh` writes one file into each — the only check that survives
+Landlock — plus a named warning when `GOPATH` sits outside `HOME`.
+
 ### Where `BASH_ENV` does not reach
 
 The overlay is applied by bash's startup file, so it has two edges worth knowing:
@@ -178,7 +187,7 @@ The script is deliberately conservative, and its contract is checked at build ti
 |---|---|
 | armed only when `DSH_SESSION_ID` is set | image builds and the entrypoint have no session, so they are unaffected |
 | adopts a directory only after a real `mkdir -p` succeeds | `test -w` cannot see Landlock; a failed probe leaves the environment untouched |
-| never changes `HOME` | it is a shared configuration root; the caches do not need it |
+| moves `HOME` only when the whole tree moved | git, jj, npm and Java all key off it; a half-move is what breaks tools |
 | prints nothing | it runs before every command in the container |
 | `DSBOT_NO_AGENT_ENV=1` disables it | escape hatch when a tool wants the image's `/data` paths |
 | `DSH_AGENT_ROOT` overrides the anchor | for a shell started outside the workspace |
@@ -204,12 +213,13 @@ thing and inspecting the artifact* — a written PDF, a written config file, a r
 | `OVERLAY_PLUGINS_STRICT` | `1` | `0` downgrades a failed plugin install from "refuse to start" to a warning |
 | `SKIP_OVERLAY_PLUGINS` | `0` | `1` skips the plugin reconcile entirely |
 | `SKIP_GATE_CHECK` | `0` | `1` disables the preflight and the startup probe (debugging only) |
-| `BASH_ENV` | `/opt/dsbot/agent-env.sh` | sourced by every non-interactive bash; points XDG and the caches at `<cwd>/.home`, never changes `HOME` |
+| `BASH_ENV` | `/opt/dsbot/agent-env.sh` | sourced by every non-interactive bash; points `HOME`, XDG and the caches at `<cwd>/.home` |
 | `DSBOT_NO_AGENT_ENV` | `0` | `1` disables the cache overlay for one shell |
 | `DSH_AGENT_ROOT` | `$PWD/.home` | anchor `agent-env.sh` uses when it cannot trust the cwd |
 | `DSBOT_AGENT_HOME` | – | the root the overlay adopted; exported so child shells reuse it |
 | `JJ_CONFIG` | `/data/.config/jj/config.toml` | jj's user config; the overlay points it at `<cwd>/.home/.config/jj/` |
 | `GIT_CONFIG_GLOBAL` | `/data/.config/git/config` | git's global config; the overlay points it at `<cwd>/.home/.config/git/` |
+| `GOPATH` | `/data/.go` | Go workspace; the overlay points it at `<cwd>/.home/.go`, together with `GOMODCACHE` and `GOCACHE` |
 
 Build-time arguments are listed in [development.md](development.md).
 

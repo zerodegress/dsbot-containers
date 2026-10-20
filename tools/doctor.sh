@@ -66,7 +66,51 @@ else
 fi
 
 head_ "File IO"
-if printf 'hello\n' > "$TMP/a.txt" && grep -q hello "$TMP/a.txt"; then ok "write + read"; else bad "write + read"; fi
+if printf 'hello\n' > "$TMP/a.txt" && grep -q hello "$TMP/a.txt"; then ok "write + read (in $TMP)"; else bad "write + read"; fi
+
+# $TMP proves nothing about the directories the agent actually uses: the sandbox
+# grants writes only inside the session workspace, while /data stays read-only.
+# Each variable below is checked by writing a file, never by `test -w` or
+# access(2) — under Landlock both report "writable" and the write still fails.
+probe_write() {
+  local name="$1" dir="$2"
+  if [ -z "$dir" ]; then
+    skip "$name (unset)"
+  elif mkdir -p "$dir" 2>/dev/null && ( : > "$dir/.doctor-$$" ) 2>/dev/null; then
+    rm -f "$dir/.doctor-$$"
+    ok "$name writable: $dir"
+  else
+    bad "$name NOT writable: $dir"
+  fi
+}
+probe_write "HOME" "${HOME:-}"
+probe_write "GOPATH" "${GOPATH:-}"
+probe_write "GOMODCACHE" "${GOMODCACHE:-}"
+probe_write "GOCACHE" "${GOCACHE:-}"
+
+# A GOPATH outside HOME is the exact bug this image shipped once: GOMODCACHE and
+# GOCACHE moved into <workspace>/.home while GOPATH stayed at /data/.go, so the
+# module and build caches worked, `go install`'s binary write was denied, and it
+# read as a broken toolchain. The write probe above catches it; this names it.
+case "${GOPATH:-}" in
+  "${HOME:-/nonexistent}"/*) : ;;
+  *) skip "GOPATH=${GOPATH:-<unset>} is outside HOME=${HOME:-<unset>} — go install will fail" ;;
+esac
+
+head_ "Network"
+# CAP_NET_RAW is absent, so every diagnostic that opens a raw socket is useless
+# here (mtr, tcpdump, ping). `ip` and `ss` read netlink instead and do work with
+# an empty capability set, which makes them the only ones worth checking.
+if have ip && ip -o link show >/dev/null 2>&1; then
+  ok "ip: $(ip -V 2>&1 | head -1)"
+else
+  bad "ip (absent or netlink read failed)"
+fi
+if have ss && ss -ltn >/dev/null 2>&1; then
+  ok "ss: listening sockets readable"
+else
+  bad "ss (absent or netlink read failed)"
+fi
 
 head_ "Documents"
 if have pandoc && printf '# hi\n' > "$TMP/a.md" && pandoc "$TMP/a.md" -o "$TMP/a.docx" 2>/dev/null; then

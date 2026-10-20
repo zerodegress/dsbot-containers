@@ -66,7 +66,7 @@ RUN set -eux; \
       ca-certificates curl wget aria2 gnupg openssl jq unzip zip tar \
       xz-utils bzip2 p7zip-full unrar-free file \
       git git-lfs less vim nano tmux rsync openssh-client \
-      procps htop lsof net-tools iputils-ping dnsutils traceroute netcat-openbsd \
+      procps htop lsof net-tools iproute2 iputils-ping dnsutils traceroute netcat-openbsd \
       bc uuid-runtime parallel cron tzdata locales man-db bash-completion \
       ripgrep fd-find fzf tree sqlite3 miller datamash gh \
       time; \
