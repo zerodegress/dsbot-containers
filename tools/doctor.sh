@@ -16,7 +16,10 @@ head_() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 head_ "Versions"
-for c in node npm pnpm python3 pip git rg fd jq pandoc soffice ffmpeg convert tesseract duckdb docker; do
+# soffice and docker left the loop on purpose: `soffice --version` prints
+# nothing (so an [OK] there means "binary exists", not "works"), and
+# `docker --version` only proves the CLI is installed. Both are probed below.
+for c in node npm pnpm python3 pip git rg fd jq jj pandoc ffmpeg convert tesseract duckdb; do
   if have "$c"; then
     v="$($c --version 2>&1 | head -1 | cut -c1-60)"
     ok "$c: $v"
@@ -24,6 +27,43 @@ for c in node npm pnpm python3 pip git rg fd jq pandoc soffice ffmpeg convert te
     skip "$c (absent)"
   fi
 done
+
+# yq has to be the Go one (v4). Debian's 3.1.0 is a jq wrapper with different
+# syntax: a v4 expression given to it returns a wrong value instead of failing,
+# so the version is the check that matters, not the presence of the binary.
+if have yq; then
+  v="$(yq --version 2>/dev/null | head -1)"
+  case "$v" in
+    *"version v4."*) ok "yq: $v" ;;
+    *) skip "yq: ${v:-no version output} — not v4 (v3 syntax differs; do not trust its output)" ;;
+  esac
+else
+  skip "yq (absent)"
+fi
+
+# soffice prints nothing to stdout in this image, so a version string is not a
+# signal. Probe the binary and say "present" when it stays quiet.
+if have soffice; then
+  v="$(soffice --version 2>/dev/null | head -1)"
+  ok "soffice: ${v:-present (no version output)}"
+else
+  skip "soffice (absent)"
+fi
+
+# `command -v time` resolves to the Bash builtin, which has no -v; only the real
+# binary counts, and only GNU time can report peak RSS.
+if [ -x /usr/bin/time ] && /usr/bin/time -v true >/dev/null 2>&1; then
+  ok "time: $(/usr/bin/time --version 2>&1 | head -1)"
+else
+  skip "GNU time (absent — bare 'time' would be the shell builtin)"
+fi
+
+# A CLI without a daemon cannot build anything; say which one we have.
+if have docker; then
+  if docker info >/dev/null 2>&1; then ok "docker: $(docker --version) (daemon reachable)"; else skip "docker CLI present, daemon unreachable"; fi
+else
+  skip "docker (absent)"
+fi
 
 head_ "File IO"
 if printf 'hello\n' > "$TMP/a.txt" && grep -q hello "$TMP/a.txt"; then ok "write + read"; else bad "write + read"; fi

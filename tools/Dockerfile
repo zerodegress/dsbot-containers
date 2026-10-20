@@ -27,6 +27,18 @@ ARG TZ=Asia/Shanghai
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ARG DOCKER_CLI_VERSION=27.5.1
+# jj has no Debian package, and building it needs the rust toolchain that sits
+# behind WITH_HEAVY (+~2.5GB), so the published static binary is the only option.
+# Pinned by version and sha256 the way the shutup fork is: the tarball lands in
+# /usr/local/bin, so a checksum that does not match must stop the build.
+ARG JJ_VERSION=0.46.0
+ARG JJ_SHA256=fce0271158e665ceb82dc66c5eb95b1728649094e9133074f3b5baece345fc08
+# yq must be the Go one (mikefarah), not Debian's 3.1.0: bookworm ships a jq
+# wrapper whose expression syntax differs, and a v4 expression given to it fails
+# silently with a wrong value. This image pins everything that parses the
+# deployment's patch YAML, so it gets the real thing.
+ARG YQ_VERSION=4.54.1
+ARG YQ_SHA256=e68a456f90c577af3fe4960184b3a3cf5c461e0348407c10f107da3a5fec8972
 ARG TOOLS_REVISION=dev
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -57,7 +69,8 @@ RUN set -eux; \
       git git-lfs less vim nano tmux rsync openssh-client \
       procps htop lsof net-tools iputils-ping dnsutils traceroute netcat-openbsd \
       bc uuid-runtime parallel cron tzdata locales man-db bash-completion \
-      ripgrep fd-find fzf tree sqlite3 miller datamash gh; \
+      ripgrep fd-find fzf tree sqlite3 miller datamash gh \
+      time; \
     sed -i 's/^# *zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen; \
     locale-gen; \
     update-locale LANG=zh_CN.UTF-8; \
@@ -146,6 +159,44 @@ RUN set -eux; \
     curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" \
       | tar -xz --strip-components=1 -C /usr/local/bin docker/docker; \
     docker --version
+
+# --- 8b. jj (jujutsu): static musl release, pinned by version + sha256 -------
+# No Debian package exists, and the toolchain that would build it is behind
+# WITH_HEAVY (+~2.5GB), so the published static binary is the only option. The
+# tarball holds ./jj plus LICENSE and README, so it is unpacked into a temp dir
+# and only the binary is installed. The checksum is not advisory: a mismatch
+# stops the build before anything reaches /usr/local/bin. The binary ships
+# unstripped at 31.4 MB; stripping brings it to 25.3 MB and `jj --version` still
+# runs, which is most of this layer's budget saved for free.
+RUN set -eux; \
+    tmp="$(mktemp -d)"; \
+    trap 'rm -rf "$tmp"' EXIT; \
+    curl -fsSL "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz" -o "$tmp/jj.tgz"; \
+    echo "${JJ_SHA256}  $tmp/jj.tgz" | sha256sum -c -; \
+    tar -xzf "$tmp/jj.tgz" -C "$tmp"; \
+    test -f "$tmp/jj" || { echo "the jj tarball no longer has ./jj at its root; layout changed, refusing to guess" >&2; exit 1; }; \
+    install -m 0755 "$tmp/jj" /usr/local/bin/jj; \
+    strip /usr/local/bin/jj; \
+    jj --version
+
+# --- 8c. yq v4 (Go, static): the real one, not bookworm's 3.1.0 --------------
+# Debian ships yq 3.1.0, a jq wrapper with different expression syntax. A v4
+# expression handed to it does not error — it returns a wrong value, which is the
+# worst failure mode for anything parsing the deployment's patch YAML. The
+# tarball carries the binary plus a man page and an install script, so only
+# `yq_linux_amd64` is installed. `strip` is deliberately not run: measured on
+# v4.54.1 it does not shrink the binary at all (14,168,232 vs 14,168,224 bytes),
+# because the release is already stripped.
+RUN set -eux; \
+    tmp="$(mktemp -d)"; \
+    trap 'rm -rf "$tmp"' EXIT; \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64.tar.gz" -o "$tmp/yq.tgz"; \
+    echo "${YQ_SHA256}  $tmp/yq.tgz" | sha256sum -c -; \
+    tar -xzf "$tmp/yq.tgz" -C "$tmp"; \
+    test -f "$tmp/yq_linux_amd64" || { echo "the yq tarball no longer has yq_linux_amd64 at its root; layout changed, refusing to guess" >&2; exit 1; }; \
+    install -m 0755 "$tmp/yq_linux_amd64" /usr/local/bin/yq; \
+    yq --version; \
+    printf 'a: {b: 1}\n' | yq -o=json '.a' | grep -q '"b": 1'
 
 # --- 9. optional heavy layer (+~2.5GB with --build-arg WITH_HEAVY=1) ---------
 RUN set -eux; \
