@@ -23,13 +23,13 @@ part of the contract, both for the build check and for the startup preflight.
 
 | argument | default | used by |
 |---|---|---|
-| `BASE_IMAGE` | `docker.io/library/node:22.22-bookworm-slim` | `tools/Dockerfile` |
+| `BASE_IMAGE` | `docker.io/library/node:22.22-bookworm-slim@sha256:e21fc38…` | `tools/Dockerfile` — pinned by manifest-list digest; see `versions.env` |
 | `WITH_PACK` | `core` | `tools/Dockerfile` — `full` adds the scientific/ML/vision/notebook/crawling half of the Python stack and the bundler/linter/test half of the Node CLIs (+~2.8GB) |
 | `WITH_HEAVY` | `0` | `tools/Dockerfile` — adds JDK, TeX Live, Go, Rust (+~2.5GB) |
 | `PIP_INDEX_URL` / `NPM_REGISTRY` | upstream | both, for mirrors |
 | `DOCKER_CLI_VERSION` | `27.5.1` | tool image |
 | `TOOLS_REVISION` | `dev` | tool image provenance stamp |
-| `TOOLS_IMAGE` | plain node base | `Dockerfile` — point it at the tool image, or leave it for a tool-less build |
+| `TOOLS_IMAGE` | plain node base, pinned by digest | `Dockerfile` — point it at the tool image, or leave it for a tool-less build |
 | `DSH_VERSION` | `0.2.1-rc.2` | `Dockerfile` |
 | `DS_BOT_VERSION` | `0.1.7` | `Dockerfile` |
 | `AUTH_GATE_VERSION` | `0.17.4` | `Dockerfile` — `engines.dsh` is `>=0.2.0-rc.1`, so it covers the pinned dsh |
@@ -39,6 +39,7 @@ part of the contract, both for the build check and for the startup preflight.
 | `AUTHLESS_COMMIT` / `AUTHLESS_SHA256` | commit `26fe680` | `Dockerfile` — the sha256 is checked against whatever `AUTHLESS_REPO` serves, so an override needs its own pair |
 | `INSTALL_AUTHLESS` / `INSTALL_AUTH_GATE` | `1` / `1` | `Dockerfile` — should match; the build warns and goes on otherwise |
 | `STRICT_VERSIONS` | `1` | `Dockerfile` — `0` downgrades the `verifiedDsh` mismatch to a warning |
+| `SCRIPTS_REVISION` | `unpinned` | `Dockerfile` — stamped into `/etc/dsbot-recipe`; a CI build passes the commit it built |
 | `IMAGE_SOURCE` | `https://github.com/your-org/dsbot-containers` | `Dockerfile` — the OCI `source` label; a deployment sets its own repository |
 
 **The authless source has a working default** — the first-party repository at the pinned
@@ -74,6 +75,54 @@ follow: it replaces the connection service's browser-auth owner, and that field 
 image cannot drift from what the plugin says it supports.
 
 <!-- forge:dev-carried-model -->
+## Reproducibility and drift
+
+Two files carry the pin: `versions.env` records what the image builds, and
+`scripts/check-versions.sh` compares it against the registries and against the
+Dockerfile defaults. The script is read-only and exits non-zero on drift.
+
+```sh
+scripts/check-versions.sh            # everything
+scripts/check-versions.sh digest     # base image manifest digest
+scripts/check-versions.sh packages   # npm pins are resolvable, and what is newer
+scripts/check-versions.sh args       # versions.env agrees with the ARG defaults
+```
+
+The base image is pinned by **manifest-list digest**, not by tag: a tag can resolve to
+a different filesystem between two builds, and a per-arch digest would break a build on
+another architecture. `versions.env` also records the amd64 entry of that list, so a
+rebuild can be compared against the filesystem that was reviewed.
+
+Pin the tool image the same way when a deployment builds one: pass
+`--build-arg TOOLS_IMAGE=<registry>/<image>@sha256:…`. A tag there reintroduces exactly the
+problem the base image pin removes, one layer up.
+
+A pinned digest without a drift check is a frozen image: the pin stops receiving base
+image security updates and nothing says so. Run the check on a schedule — it queries the
+registries, never this repository's git remote, because the remote is not evidence about
+what a registry serves.
+
+## Release channel: SBOM and provenance
+
+The default build stays a plain `docker build`, so it works anywhere. The release channel
+adds attestations, which require buildx and a registry:
+
+```sh
+docker buildx build --push \
+  --sbom=true --provenance=mode=max \
+  -t <registry>/<image>:<tag> .
+```
+
+Verify in the published image rather than in the build log:
+
+```sh
+docker buildx imagetools inspect <registry>/<image>:<tag>
+```
+
+These are deliberately **not** assertions in the default build: `--sbom` and
+`--provenance` fail on a bare `docker build` without buildx, so making them unconditional
+would turn a reproducibility improvement into a build that cannot run.
+
 ## The carried-package model
 
 ds-bot is not installed into the profile. It is unpacked into the dsh

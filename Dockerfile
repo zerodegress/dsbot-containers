@@ -13,7 +13,10 @@
 # docs/development.md has the version matrix; docs/security.md explains why
 # authless and the login gate are installed as a pair.
 # =============================================================================
-ARG TOOLS_IMAGE=docker.io/library/node:22.22-bookworm-slim
+# Base image, pinned by manifest-list digest: the tag alone lets a rebuild
+# silently pick up a different filesystem. versions.env holds the value and
+# the amd64 entry for comparison; scripts/check-versions.sh reports drift.
+ARG TOOLS_IMAGE=docker.io/library/node:22.22-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752
 FROM ${TOOLS_IMAGE}
 
 ARG DSH_VERSION=0.2.1-rc.2
@@ -34,6 +37,9 @@ ARG AUTHLESS_SHA256=809ef67b225173128b4720650c81e10439981e3eab53e9fe00a10d635ee2
 ARG INSTALL_AUTHLESS=1
 ARG INSTALL_AUTH_GATE=1
 ARG STRICT_VERSIONS=1
+# Recorded in /etc/dsbot-recipe. An unset value used to print "unknown",
+# which reads like "asked and found nothing" instead of "never set".
+ARG SCRIPTS_REVISION=unpinned
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -279,7 +285,7 @@ RUN set -eux; \
     cat /etc/dsbot-versions; \
     # forge:recipe — one line per artifact, and where it came from.
     printf 'dsh %s\nds-bot %s\nnpm %s\nscripts %s\ndsh-auth-gate %s\ndsh-authless %s\nauthless_commit %s\ntools %s\nbuilt %s\n' \
-      "$DSH_VERSION" "$DS_BOT_VERSION" "$(npm --version 2>/dev/null || echo unknown)" "${scripts_meta:-unknown}" \
+      "$DSH_VERSION" "$DS_BOT_VERSION" "$(npm --version 2>/dev/null || echo unknown)" "${scripts_meta:-$SCRIPTS_REVISION}" \
       "$AUTH_GATE_VERSION" "$INSTALL_AUTHLESS" "$AUTHLESS_COMMIT" \
       "$tools_meta" "$(date -u +%FT%TZ)" \
       > /etc/dsbot-recipe; \
