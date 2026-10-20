@@ -29,7 +29,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 ARG DOCKER_CLI_VERSION=27.5.1
 # jj has no Debian package, and building it needs the rust toolchain that sits
 # behind WITH_HEAVY (+~2.5GB), so the published static binary is the only option.
-# Pinned by version and sha256 the way the shutup fork is: the tarball lands in
+# Pinned by version and sha256 the way dsh-authless is: the tarball lands in
 # /usr/local/bin, so a checksum that does not match must stop the build.
 ARG JJ_VERSION=0.46.0
 ARG JJ_SHA256=fce0271158e665ceb82dc66c5eb95b1728649094e9133074f3b5baece345fc08

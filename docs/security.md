@@ -6,14 +6,14 @@ The image bundles two plugins that are useless — and dangerous — apart:
 
 | plugin | behaviour | side effect |
 |---|---|---|
-| `dsh-shutup` | quiet web start, inverted `--no-open`, `--host 0.0.0.0` allowed | **removes dsh's own `?token=` gate** and the refusal to bind a wildcard address |
+| `dsh-authless` | serves the Web UI without the launch-token check: `/` answers without a cookie, the printed URL carries no `?token=` | **removes dsh's own `?token=` gate**; the Host/Origin fence stays, and `--host 0.0.0.0` is still refused |
 | `dsh-auth-gate` | login required for every page, API call and WebSocket (password or shared token, optional TOTP); a missing or broken configuration blocks access instead of allowing it | – |
 
-Shutup alone means: reachable binding, no authentication. That is why the two are
-installed as a pair and the build refuses to produce an image with only one of them
-(`INSTALL_SHUTUP` and `INSTALL_AUTH_GATE` must match).
+Authless alone means: any local process that can reach the port can use the harness
+API. That is why the two are installed as a pair and the build warns when only one is
+set (`INSTALL_AUTHLESS` and `INSTALL_AUTH_GATE` should match).
 
-If you install `dsh-shutup` on its own, outside this image, you own the consequences:
+If you install `dsh-authless` on its own, outside this image, you own the consequences:
 put it behind your own gate (an authenticating reverse proxy, an access-controlled
 tunnel), or keep it inside a trusted network or a tailnet.
 
@@ -38,8 +38,8 @@ build.
 
 `SKIP_GATE_CHECK=1` turns both runtime checks off. Do not ship a deployment with it.
 
-Building with `INSTALL_SHUTUP=1` and `INSTALL_AUTH_GATE=0` is **allowed**: it
-produces an image with no gate of its own (shutup removes dsh's token gate and no
+Building with `INSTALL_AUTHLESS=1` and `INSTALL_AUTH_GATE=0` is **allowed**: it
+produces an image with no gate of its own (authless removes dsh's token gate and no
 login gate replaces it). The build warns and goes on — the operator owns that
 risk: front it with an authenticated proxy (Cloudflare Access, a reverse proxy
 with auth) or keep it on a private network.
@@ -76,12 +76,10 @@ a safe one — but it is a decision, not a default.
 
 ## Caveats
 
-- **Licensing.** `dsh-shutup`'s upstream repository carries no license and is no longer
-  maintained, so this image builds it from a pinned commit of our own fork. Publishing
-  prebuilt images redistributes it: give the fork an explicit license (and keep the
-  provenance note) before doing that, or build with
-  `--build-arg INSTALL_SHUTUP=0 INSTALL_AUTH_GATE=0`, which keeps dsh's own token gate
-  and drops the `0.0.0.0` allowance.
+- **Licensing.** `dsh-authless` is MIT, first-party, and pinned by commit; publishing
+  prebuilt images redistributes it under that license. Building with
+  `--build-arg INSTALL_AUTHLESS=0 INSTALL_AUTH_GATE=0` keeps dsh's own token gate
+  instead, which is the conservative choice for a single-user host.
 - **No host socket by default.** The tool image contains a docker CLI, but nothing mounts
   the host's container socket. Doing so hands host root to whatever runs inside the
   container; if a deployment really wants it, that is a deliberate, documented change.

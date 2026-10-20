@@ -6,11 +6,11 @@
 #   1. seed the volume from the image on first start
 #   2. bootstrap the login gate token when none was supplied
 #   3. reconcile the plugins declared by the deployment layer
-#   4. compose the patch order (base -> deployment layer -> the bot's own -> plugins)
+#   4. compose the patch order (image base -> deployment layer -> bundled plugins)
 #   5. preflight: the login gate must be in the composed tree
 #   6. start, then probe: an unauthenticated request must not get the app shell
 #
-# The last two checks exist because shutup removes dsh's own token gate: if the
+# The last two checks exist because authless removes dsh's own token gate: if the
 # login gate were skipped, nothing would be left. SKIP_GATE_CHECK=1 disables
 # them; use it only while debugging.
 # =============================================================================
@@ -60,7 +60,7 @@ mkdir -p "$DSH_HOME/bot/workspace" \
 
 # --- 2. login gate token -----------------------------------------------------
 AUTH_MODE="$(sed -n 's/^auth_gate=//p' /etc/dsbot-versions 2>/dev/null | head -1 || true)"
-SHUTUP_MODE="$(sed -n 's/^shutup=//p' /etc/dsbot-versions 2>/dev/null | head -1 || true)"
+AUTHLESS_MODE="$(sed -n 's/^authless=//p' /etc/dsbot-versions 2>/dev/null | head -1 || true)"
 
 if [ -z "${DSH_AUTH_TOKEN:-}" ] && [ "$AUTH_MODE" = "1" ]; then
     TOKEN_FILE="$DSH_HOME/auth/token"
@@ -108,7 +108,7 @@ if [ -d /etc/dsbot/overlay ]; then
         set -- "$@" --patch "$p"
     done
 fi
-for f in /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
+for f in /opt/dsh-plugins/dsh-authless/cordis.patch.yml \
          /opt/dsh-plugins/dsh-auth-gate/cordis.patch.yml; do
     [ -f "$f" ] && set -- "$@" --patch "$f"
 done
@@ -199,13 +199,13 @@ if [ "$SKIP_GATE_CHECK" != "1" ]; then
         grep -n 'skipped' "$DUMP" | head -10
     fi
     if [ "$AUTH_MODE" = "1" ] && ! grep -q 'dsh-auth-gate' "$DUMP"; then
-        grep -n 'shutup\|skipped\|error' "$DUMP" | head -20 || true
-        die "the login gate is not in the composed config; with shutup installed that means an open door. Refusing to start."
+        grep -n 'authless\|skipped\|error' "$DUMP" | head -20 || true
+        die "the login gate is not in the composed config; with authless installed that means an open door. Refusing to start."
     fi
-    if [ "$SHUTUP_MODE" = "1" ] && ! grep -q 'shutup' "$DUMP"; then
-        log "WARNING: shutup is not in the composed config (the token gate may still be on)"
+    if [ "$AUTHLESS_MODE" = "1" ] && ! grep -q 'authless' "$DUMP"; then
+        log "WARNING: authless is not in the composed config (the token gate may still be on)"
     fi
-    log "preflight ok (auth_gate=$AUTH_MODE shutup=$SHUTUP_MODE)"
+    log "preflight ok (auth_gate=$AUTH_MODE authless=$AUTHLESS_MODE)"
 fi
 
 # --- 6. start ----------------------------------------------------------------

@@ -9,7 +9,7 @@
 //   3. the host-version peer ranges the dsh loader consults ("@deepseek-ai/dsh*")
 //      cover the pinned dsh version. A bundle whose peers do not cover the host
 //      is skipped silently, and a skipped login gate means an open door once
-//      shutup has removed dsh's own token gate.
+//      authless has removed dsh's own token gate.
 'use strict'
 const path = require('node:path')
 const fs = require('node:fs')

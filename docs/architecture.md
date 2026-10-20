@@ -6,7 +6,7 @@
 flowchart TB
   L0["L0 base image<br/>docker.io/library/node:22.22-bookworm-slim"]
   L1["L1 dsbot-tools<br/>system + CLI + office + Python + Node CLIs<br/>core pack by default, full pack on request<br/>no dsh, no ds-bot"]
-  L2["L2 dsbot image<br/>dsh + ds-bot + shutup + login gate + base patch"]
+  L2["L2 dsbot image<br/>dsh + ds-bot + authless + login gate + base patch"]
   L3["L3 deployment layer (read-only mount)<br/>/etc/dsbot/overlay/*.patch.yml, plugins.txt"]
   L4["L4 volume (writable)<br/>/data: profiles, bot data, sessions, memory"]
   L0 --> L1 --> L2
@@ -30,7 +30,7 @@ dsh composes its plugin tree from several layers, and **later layers win**:
 3. image base layer — `dsh-layers/base-layer.patch.yml`
 4. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
    sorted by file name
-5. the bundled plugins' own bundle patches — shutup and the login gate
+5. the bundled plugins' own bundle patches — authless and the login gate
 
 There is no Bot-owned layer: the sandbox never grants `$DSH_HOME`, so a patch directory
 there could not be written by anything running in the container.

@@ -21,7 +21,7 @@ Everything version-related is a build argument, so an upgrade is a rebuild:
 ```sh
 podman build -t ghcr.io/your-org/dsbot-containers:0.1.7 \
   --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \
-  --build-arg DSH_VERSION=0.2.0-rc.2 \
+  --build-arg DSH_VERSION=0.2.1-rc.2 \
   --build-arg DS_BOT_VERSION=0.1.7 .
 podman compose up -d
 ```

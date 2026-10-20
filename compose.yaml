@@ -16,19 +16,18 @@ services:
         # Both layers share a base image; without TOOLS_IMAGE you get the
         # tool-less variant. See docs/architecture.md.
         TOOLS_IMAGE: dsbot-tools:bookworm
-        DSH_VERSION: "0.2.0-rc.2"
+        DSH_VERSION: "0.2.1-rc.2"
         # forge:ds-bot-pin — the image carries ds-bot; a volume copy cannot win.
         DS_BOT_VERSION: "0.1.7"
         AUTH_GATE_VERSION: "0.17.4"
-        # Installed as a pair; setting only one fails the build on purpose.
-        INSTALL_SHUTUP: "1"
+        # Installed as a pair; setting only one warns at build time.
+        INSTALL_AUTHLESS: "1"
         INSTALL_AUTH_GATE: "1"
-        # SHUTUP_REPO has no usable default: the build fetches that fork and
-        # checks it against SHUTUP_SHA256, so a build without it stops there
-        # (404). Uncomment the three and fill in your fork and its commit.
-        # SHUTUP_REPO: https://github.com/your-org/dsh-shutup
-        # SHUTUP_COMMIT: <40-hex commit id>
-        # SHUTUP_SHA256: <sha256 of that commit's tarball>
+        # The defaults point at the first-party repository, so a build needs no
+        # override. Uncomment the three only to build from your own fork.
+        # AUTHLESS_REPO: https://github.com/your-org/dsh-authless
+        # AUTHLESS_COMMIT: <40-hex commit id>
+        # AUTHLESS_SHA256: <sha256 of that commit's tarball>
 
     # DSBOT_IMAGE overrides the reference image; the default keeps the tag
     # convention (tag == the ds-bot version the image was built against).

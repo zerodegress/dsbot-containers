@@ -15,8 +15,7 @@ overlay/
 
 Any `*.patch.yml` in the directory is passed to dsh as `--patch`, in name order, after
 the image base layer — so it overrides both the settings UI and the base layer, but the
-bundled plugins' own patches (shutup, the login gate) and the Bot's own layer are applied
-after it. Use numeric prefixes when the order between your own files matters.
+bundled plugins' own patches (authless, the login gate) are applied after it. Use numeric prefixes when the order between your own files matters.
 
 A patch is the normal dsh format; see
 [`examples/10-providers.example.patch.yml`](../examples/10-providers.example.patch.yml).

@@ -16,7 +16,7 @@ wins**, so the list below is ordered lowest to highest:
 3. the image base layer — `/opt/dsh-layers/base-layer.patch.yml`
 4. the deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`
    (mounted read-only; providers, models and other deployment decisions live here)
-5. the bundled plugins' patches — shutup and the login gate; nothing below can change
+5. the bundled plugins' patches — authless and the login gate; nothing below can change
    what they set
 
 **There is no layer of your own.** Configuration has exactly three entry points: the
@@ -70,7 +70,7 @@ hot reload in this instance.
 
 - Anything the deployment decided: `/etc/dsbot/overlay/*` is mounted read-only, and a
   patch cannot remove a row the deployment set either.
-- shutup and the login gate: their patches are applied last (layer 5). You can neither
+- authless and the login gate: their patches are applied last (layer 5). You can neither
   reconfigure nor remove the plugins themselves.
 - The root filesystem: it is read-only. Writable paths are the session workspace and the
   tmpfs mounts (`/tmp`, `/run`). There is no container runtime inside: no docker or

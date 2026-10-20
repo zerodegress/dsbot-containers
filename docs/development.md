@@ -7,15 +7,16 @@ build time, not at runtime.
 
 | component | version | pinned by | declared compatibility |
 |---|---|---|---|
-| dsh | `0.2.0-rc.2` | `DSH_VERSION` | the release DS Bot's own install docs target |
+| dsh | `0.2.1-rc.2` | `DSH_VERSION` | `dsh-authless` declares `engines.dsh >=0.2.1-rc.2 <0.3.0`, and the build refuses a host outside it |
 | ds-bot | `0.1.7` | `DS_BOT_VERSION` | peers are `*`; the package declares no `engines` and no `dsBot.verifiedDsh`, so the build has nothing to assert |
 <!-- forge:dev-dsbot-pin -->
 | dsh-auth-gate | `0.17.4` | `AUTH_GATE_VERSION` | `engines.dsh` and the `@deepseek-ai/dsh-storage-domain` peer both allow `>=0.2.0-rc.1`; the build re-checks the peer range |
-| dsh-shutup | fork commit `4d4aeb6` | `SHUTUP_COMMIT` + `SHUTUP_SHA256` | it restates the `web-runtime` row, whose schema belongs to the dsh line, so re-port the pin whenever `DSH_VERSION` moves |
-<!-- forge:dev-shutup-line -->
+| dsh-authless | commit `26fe680` | `AUTHLESS_COMMIT` + `AUTHLESS_SHA256` | `engines.dsh >=0.2.1-rc.2 <0.3.0`; the build parses that range and refuses a pin outside it |
+<!-- forge:dev-authless-line -->
 
 Since dsh 0.2.0-rc.2, a plugin whose `@deepseek-ai/dsh*` peer does not cover the running
-host is **skipped silently** (`engines.dsh` is not consulted). Peer ranges are therefore
+host is **skipped silently** (`engines.dsh` is not consulted by the loader, which is why
+the build checks it itself). Peer ranges are therefore
 part of the contract, both for the build check and for the startup preflight.
 
 ## Build arguments
@@ -29,20 +30,21 @@ part of the contract, both for the build check and for the startup preflight.
 | `DOCKER_CLI_VERSION` | `27.5.1` | tool image |
 | `TOOLS_REVISION` | `dev` | tool image provenance stamp |
 | `TOOLS_IMAGE` | plain node base | `Dockerfile` — point it at the tool image, or leave it for a tool-less build |
-| `DSH_VERSION` | `0.2.0-rc.2` | `Dockerfile` |
+| `DSH_VERSION` | `0.2.1-rc.2` | `Dockerfile` |
 | `DS_BOT_VERSION` | `0.1.7` | `Dockerfile` |
 | `AUTH_GATE_VERSION` | `0.17.4` | `Dockerfile` — `engines.dsh` is `>=0.2.0-rc.1`, so it covers the pinned dsh |
 | `NPM_VERSION` | `12` | `Dockerfile` — the base image ships npm 10.9.8, which has no `--allow-scripts`; the build upgrades npm first and refuses anything older than 11 |
 <!-- forge:dev-npm -->
-| `SHUTUP_REPO` | `https://github.com/your-org/dsh-shutup` | `Dockerfile` — a **placeholder**: a deployment must pass its own fork here |
-| `SHUTUP_COMMIT` / `SHUTUP_SHA256` | the pinned commit in that fork | `Dockerfile` — the sha256 is checked against whatever `SHUTUP_REPO` serves, so it is meaningless against someone else's fork |
-| `INSTALL_SHUTUP` / `INSTALL_AUTH_GATE` | `1` / `1` | `Dockerfile` — must match, the build refuses otherwise |
+| `AUTHLESS_REPO` | `https://github.com/zerodegress/dsh-authless` | `Dockerfile` — the first-party repository; override it to build from your own fork |
+| `AUTHLESS_COMMIT` / `AUTHLESS_SHA256` | commit `26fe680` | `Dockerfile` — the sha256 is checked against whatever `AUTHLESS_REPO` serves, so an override needs its own pair |
+| `INSTALL_AUTHLESS` / `INSTALL_AUTH_GATE` | `1` / `1` | `Dockerfile` — should match; the build warns and goes on otherwise |
 | `STRICT_VERSIONS` | `1` | `Dockerfile` — `0` downgrades the `verifiedDsh` mismatch to a warning |
 | `IMAGE_SOURCE` | `https://github.com/your-org/dsbot-containers` | `Dockerfile` — the OCI `source` label; a deployment sets its own repository |
 
-**A deployment must pass its own shutup source** — `SHUTUP_REPO=…` together with the
-`SHUTUP_COMMIT` / `SHUTUP_SHA256` of the commit that fork tracks. The repository default is
-a placeholder, and the pinned sha256 only verifies the fork it came from.
+**The authless source has a working default** — the first-party repository at the pinned
+commit. A deployment that builds from its own fork must pass `AUTHLESS_REPO` together with
+that fork's `AUTHLESS_COMMIT` / `AUTHLESS_SHA256`: the pinned sha256 only verifies the tree
+it came from.
 
 ## Building and publishing
 
@@ -50,27 +52,26 @@ a placeholder, and the pinned sha256 only verifies the fork it came from.
 # core pack by default; add --build-arg WITH_PACK=full for the scientific stack
 podman build -t dsbot-tools:bookworm -f tools/Dockerfile tools
 # forge:dev-build-cmd
-# the shutup fork must be your own: --build-arg SHUTUP_REPO=https://…/dsh-shutup
 podman build -t ghcr.io/your-org/dsbot-containers:0.1.7 \
   --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \
-  --build-arg DSH_VERSION=0.2.0-rc.2 \
+  --build-arg DSH_VERSION=0.2.1-rc.2 \
   --build-arg DS_BOT_VERSION=0.1.7 .
 podman push ghcr.io/your-org/dsbot-containers:0.1.7
 ```
 
 A deployment that needs a different dsh line overrides the default at build time with
-`--build-arg DSH_VERSION=…`; this repository keeps pinning `0.2.0-rc.2` as its default.
+`--build-arg DSH_VERSION=…`; this repository keeps pinning `0.2.1-rc.2` as its default.
 
 Tags follow the DS Bot version the image was built against, so `0.1.7` pairs with
 `ds-bot@0.1.7`. Record the resulting dsh version and plugin versions in the release notes
 (`/etc/dsbot-versions` inside the image prints them).
 <!-- forge:dev-tag-line -->
 
-When the dsh line moves, the shutup fork needs a port before the image can follow: the
-bundle patch restates the `web-runtime` config, whose schema changes between lines. Do
-that as a commit in the fork (the pinned commit's message says which dsh line it targets),
-then bump `SHUTUP_COMMIT` and `SHUTUP_SHA256` here. Nothing is patched at build time, so
-the image cannot drift from what the fork says it supports.
+When the dsh line moves, `dsh-authless` needs a matching release before the image can
+follow: it replaces the connection service's browser-auth owner, and that field belongs to
+`@deepseek-ai/dsh-client-connection`. Do that as a commit in the repository, then bump
+`AUTHLESS_COMMIT` and `AUTHLESS_SHA256` here. Nothing is patched at build time, so the
+image cannot drift from what the plugin says it supports.
 
 <!-- forge:dev-carried-model -->
 ## The carried-package model
@@ -117,6 +118,5 @@ real profile.
 ## License status
 
 The repository's own license is not decided yet. Upstream components keep their licenses:
-DeepSeek Harness and DS Bot by their authors, `dsh-auth-gate` under MIT, and `dsh-shutup`
-— unmaintained and unlicensed upstream — through this project's fork of it. Decide and
-add a `LICENSE` file (and a provenance note for the fork) before publishing images.
+DeepSeek Harness and DS Bot by their authors, and `dsh-auth-gate` and `dsh-authless` under
+MIT. Decide and add a `LICENSE` file before publishing images.

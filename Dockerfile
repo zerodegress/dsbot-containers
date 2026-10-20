@@ -7,31 +7,31 @@
 #
 #   docker build -t dsbot-containers:local . \
 #     --build-arg TOOLS_IMAGE=dsbot-tools:bookworm \
-#     --build-arg DSH_VERSION=0.2.0-rc.2 \
-#     --build-arg DS_BOT_VERSION=0.1.6
+#     --build-arg DSH_VERSION=0.2.1-rc.2 \
+#     --build-arg DS_BOT_VERSION=0.1.7
 #
 # docs/development.md has the version matrix; docs/security.md explains why
-# shutup and the login gate are installed as a pair.
+# authless and the login gate are installed as a pair.
 # =============================================================================
 ARG TOOLS_IMAGE=docker.io/library/node:22.22-bookworm-slim
 FROM ${TOOLS_IMAGE}
 
-ARG DSH_VERSION=0.2.0-rc.2
+ARG DSH_VERSION=0.2.1-rc.2
 # forge:npm-arg — the --allow-scripts flag below is enforced by npm itself.
 # The base image (node 22.22) ships npm 10.9.8, whose config definitions have
 # no allow-scripts key at all (only allow-same-version); the key appears in npm
 # 12. The upstream reference installs from node 24, npm 11.3.0, and never
 # notices. This image upgrades npm first and then proves the upgrade took.
 ARG NPM_VERSION=12
-ARG DS_BOT_VERSION=0.1.6
+ARG DS_BOT_VERSION=0.1.7
 ARG AUTH_GATE_VERSION=0.17.4
-# link-fgfgui/dsh-shutup is unmaintained; we track our own fork of it.
-# The default is a placeholder: a deployment must pass its own fork here
-# (--build-arg SHUTUP_REPO=…), because SHUTUP_SHA256 only verifies that fork.
-ARG SHUTUP_REPO=https://github.com/your-org/dsh-shutup
-ARG SHUTUP_COMMIT=4d4aeb6759f23991290e6227b57a9b8594f04202
-ARG SHUTUP_SHA256=f457899a489dcaee62e86ed0e6cdf856d00f2d7292007270a54f6ddfdebef5db
-ARG INSTALL_SHUTUP=1
+# dsh-authless replaces dsh's launch-token gate. It is a first-party MIT plugin,
+# tracked at a pinned commit of its own repository, so the sha256 pins exactly
+# the tree this image was built against.
+ARG AUTHLESS_REPO=https://github.com/zerodegress/dsh-authless
+ARG AUTHLESS_COMMIT=26fe680a078ba527f811291db4b527a505ad9bee
+ARG AUTHLESS_SHA256=809ef67b225173128b4720650c81e10439981e3eab53e9fe00a10d635ee2084f
+ARG INSTALL_AUTHLESS=1
 ARG INSTALL_AUTH_GATE=1
 ARG STRICT_VERSIONS=1
 ARG NPM_REGISTRY=https://registry.npmjs.org
@@ -160,27 +160,32 @@ RUN set -eux; \
     test -f /opt/dsh-plugins/dsh-auth-gate/cordis.patch.yml; \
     node -e "console.log('dsh-auth-gate carried by dsh:', require('$D/package.json').dependencies['dsh-auth-gate'])"
 
-# --- 6. dsh-shutup: our fork at a pinned commit ------------------------------
-# The fork tracks the dsh line this image pins; a port to a new dsh line is a
-# commit there, not a patch here.
+# --- 6. dsh-authless: our plugin at a pinned commit --------------------------
+# It replaces the connection service's browser-auth owner, so `/` answers
+# without a token or a cookie and the URL dsh prints carries no `?token=`. The
+# Host/Origin fence is untouched, dsh still refuses `--host 0.0.0.0`, and the
+# plugin declares no runtime dependency of its own. Its bundle patch inserts a
+# single row (`id: authless`) and leaves the host's rows alone.
+COPY scripts/check-dsh-authless.js /opt/scripts/check-dsh-authless.js
 RUN set -eux; \
-    [ "$INSTALL_SHUTUP" = "1" ] || { echo "shutup disabled (INSTALL_SHUTUP=0)"; exit 0; }; \
+    [ "$INSTALL_AUTHLESS" = "1" ] || { echo "authless disabled (INSTALL_AUTHLESS=0)"; exit 0; }; \
     D=/usr/local/lib/node_modules/@deepseek-ai/dsh; \
-    mkdir -p /opt/dsh-plugins/dsh-shutup; \
-    curl -fsSL "${SHUTUP_REPO}/archive/${SHUTUP_COMMIT}.tar.gz" -o /tmp/shutup.tgz; \
-    echo "${SHUTUP_SHA256}  /tmp/shutup.tgz" | sha256sum -c -; \
-    tar -xzf /tmp/shutup.tgz --strip-components=1 -C /opt/dsh-plugins/dsh-shutup; \
-    rm -f /tmp/shutup.tgz; \
-    rm -rf "$D/node_modules/dsh-shutup"; \
-    cp -a /opt/dsh-plugins/dsh-shutup "$D/node_modules/dsh-shutup"; \
-    D="$D" node -e "const fs=require('fs'),p=process.env.D+'/package.json',j=JSON.parse(fs.readFileSync(p,'utf8'));j.dependencies['dsh-shutup']=require(process.env.D+'/node_modules/dsh-shutup/package.json').version;fs.writeFileSync(p,JSON.stringify(j,null,2))"; \
-    node -e "for (const m of ['dsh-shutup/startup','dsh-shutup','commander','@deepseek-ai/dsh-cmdline']) require.resolve(m,{paths:['$D/node_modules']}); console.log('dsh-shutup resolvable:', require('$D/package.json').dependencies['dsh-shutup'])"
+    mkdir -p /opt/dsh-plugins/dsh-authless; \
+    curl -fsSL "${AUTHLESS_REPO}/archive/${AUTHLESS_COMMIT}.tar.gz" -o /tmp/authless.tgz; \
+    echo "${AUTHLESS_SHA256}  /tmp/authless.tgz" | sha256sum -c -; \
+    tar -xzf /tmp/authless.tgz --strip-components=1 -C /opt/dsh-plugins/dsh-authless; \
+    rm -f /tmp/authless.tgz; \
+    rm -rf "$D/node_modules/dsh-authless"; \
+    cp -a /opt/dsh-plugins/dsh-authless "$D/node_modules/dsh-authless"; \
+    D="$D" node -e "const fs=require('fs'),p=process.env.D+'/package.json',j=JSON.parse(fs.readFileSync(p,'utf8'));j.dependencies['dsh-authless']=require(process.env.D+'/node_modules/dsh-authless/package.json').version;fs.writeFileSync(p,JSON.stringify(j,null,2))"; \
+    test -f /opt/dsh-plugins/dsh-authless/cordis.patch.yml; \
+    D="$D" DSH_VERSION="$DSH_VERSION" node /opt/scripts/check-dsh-authless.js
 
 # --- 7. gate pairing: warn, never refuse (the operator owns the risk) ---------
 RUN set -eux; \
-    if [ "$INSTALL_SHUTUP" != "$INSTALL_AUTH_GATE" ]; then \
-      echo "WARNING: INSTALL_SHUTUP=$INSTALL_SHUTUP with INSTALL_AUTH_GATE=$INSTALL_AUTH_GATE"; \
-      echo "  shutup removes dsh's own token gate, and the login gate is what replaces it."; \
+    if [ "$INSTALL_AUTHLESS" != "$INSTALL_AUTH_GATE" ]; then \
+      echo "WARNING: INSTALL_AUTHLESS=$INSTALL_AUTHLESS with INSTALL_AUTH_GATE=$INSTALL_AUTH_GATE"; \
+      echo "  authless removes dsh's own token gate, and the login gate is what replaces it."; \
       echo "  This image therefore has no gate of its own. Front it with an authenticated"; \
       echo "  proxy or keep it on a private network, or set both build args the same way."; \
       echo "  Building anyway: the operator owns that risk." >&2; \
@@ -267,15 +272,15 @@ RUN set -eux; \
       tools_pack="$(sed -n 's/^pack=//p' /opt/tools-version | head -1)"; \
       tools_meta="${tools_rev:-unknown} pack=${tools_pack:-unknown}"; \
     fi; \
-    printf 'dsbot=%s\ndsh=%s\nauth_gate=%s\nauth_gate_version=%s\nshutup=%s\nshutup_commit=%s\ntools=%s\nbuilt=%s\n' \
-      "$DS_BOT_VERSION" "$DSH_VERSION" "$INSTALL_AUTH_GATE" "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
+    printf 'dsbot=%s\ndsh=%s\nauth_gate=%s\nauth_gate_version=%s\nauthless=%s\nauthless_commit=%s\ntools=%s\nbuilt=%s\n' \
+      "$DS_BOT_VERSION" "$DSH_VERSION" "$INSTALL_AUTH_GATE" "$AUTH_GATE_VERSION" "$INSTALL_AUTHLESS" "$AUTHLESS_COMMIT" \
       "$tools_meta" "$(date -u +%FT%TZ)" \
       > /etc/dsbot-versions; \
     cat /etc/dsbot-versions; \
     # forge:recipe — one line per artifact, and where it came from.
-    printf 'dsh %s\nds-bot %s\nnpm %s\nscripts %s\ndsh-auth-gate %s\ndsh-shutup %s\nshutup_commit %s\ntools %s\nbuilt %s\n' \
+    printf 'dsh %s\nds-bot %s\nnpm %s\nscripts %s\ndsh-auth-gate %s\ndsh-authless %s\nauthless_commit %s\ntools %s\nbuilt %s\n' \
       "$DSH_VERSION" "$DS_BOT_VERSION" "$(npm --version 2>/dev/null || echo unknown)" "${scripts_meta:-unknown}" \
-      "$AUTH_GATE_VERSION" "$INSTALL_SHUTUP" "$SHUTUP_COMMIT" \
+      "$AUTH_GATE_VERSION" "$INSTALL_AUTHLESS" "$AUTHLESS_COMMIT" \
       "$tools_meta" "$(date -u +%FT%TZ)" \
       > /etc/dsbot-recipe; \
     cat /etc/dsbot-recipe
@@ -297,7 +302,7 @@ WORKDIR /data/bot/workspace
 # deployment passes --build-arg IMAGE_SOURCE=<its own repository URL>.
 ARG IMAGE_SOURCE=https://github.com/your-org/dsbot-containers
 LABEL org.opencontainers.image.title="dsbot-containers" \
-      org.opencontainers.image.description="DS Bot on DeepSeek Harness: dsh web plus the bundled shutup and login-gate pair, non-root on a read-only root" \
+      org.opencontainers.image.description="DS Bot on DeepSeek Harness: dsh web plus the bundled authless and login-gate pair, non-root on a read-only root" \
       org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.licenses="Apache-2.0"
 

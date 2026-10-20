@@ -4,7 +4,7 @@
 #
 # Files there are applied in name order, after the image base layer and the
 # deployment layer, and before the bundled plugins' patches. That makes this the
-# layer that wins over what a deployment set — everything except shutup and the
+# layer that wins over what a deployment set — everything except authless and the
 # login gate, which the image pins.
 #
 # Patches are read at startup: restart the container after adding one. The image

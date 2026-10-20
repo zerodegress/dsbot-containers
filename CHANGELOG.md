@@ -4,13 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-Image tags carry the DS Bot version the image was built against, so `0.1.6` is
-`ds-bot@0.1.6`.
+Image tags carry the DS Bot version the image was built against, so `0.1.7` is
+`ds-bot@0.1.7`.
 
 ## [Unreleased]
 
 ### Removed
 
+- The `dsh-shutup` pin: the image no longer fetches that unlicensed fork at build time.
 - The Bot's own configuration layer (`$DSH_HOME/patches/*.patch.yml`). Nothing running
   in the container could write it — the file sandbox grants only the session workspace —
   so it was dead weight that read like an escape hatch. Configuration has three entry
@@ -31,20 +32,22 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   layer's `web-search-auto` row lands in the composed tree, so a version bump that
   renames or drops that bundle fails the build instead of leaving a row that points
   nowhere.
+- `scripts/check-dsh-authless.js`: the build parses the plugin's `engines.dsh` range,
+  refuses a pin outside it, and checks that its bundle patch inserts exactly one row
+  named `dsh-authless`.
 
 ### Changed
 
 - The build-time base sanity check follows the base this repository pins: it requires
   node `>= 22.22.2` (what the default `NPM_VERSION=12` needs) instead of `>= 22.19`, so a
   base that cannot install npm 12 fails at step 0 instead of at the npm upgrade.
-- Patch order is now, lowest first: image base layer → deployment layer → the Bot's own
-  patches → the bundled plugins' patches. The base layer moves below the deployment layer,
-  so a deployment can tune the rows the image inserts; the Bot gets a layer of its own in
-  the volume; shutup and the login gate stay pinned at the top, so neither of the layers
-  below can undo them. The web search provider row stays out of the base layer: it is
-  deployment config. `docs/architecture.md`, `docs/configuration.md`, `docs/security.md`
-  and the base layer's header state the order.
-- The shutup / login-gate pairing is a build-time **warning** instead of a refusal: `INSTALL_SHUTUP=1` with `INSTALL_AUTH_GATE=0` now builds an image with no gate of its own, which is a legitimate choice when an authenticated proxy fronts it. The default pair is unchanged, and `docs/security.md` states the operator's responsibility.
+- Patch order is now, lowest first: image base layer → deployment layer → the bundled
+  plugins' patches. The base layer moves below the deployment layer, so a deployment can
+  tune the rows the image inserts; authless and the login gate stay pinned at the top, so
+  the layer below cannot undo them. The web search provider row stays out of the base
+  layer: it is deployment config. `docs/architecture.md`, `docs/configuration.md`,
+  `docs/security.md` and the base layer's header state the order.
+- The authless / login-gate pairing is a build-time **warning** instead of a refusal: `INSTALL_AUTHLESS=1` with `INSTALL_AUTH_GATE=0` now builds an image with no gate of its own, which is a legitimate choice when an authenticated proxy fronts it. The default pair is unchanged, and `docs/security.md` states the operator's responsibility.
 - The tool image defaults to a `core` pack: documents, PDF, images, browsers and
   data frames. The scientific/ML/vision/notebook/crawling Python stack and the
   bundler/linter/test Node CLIs moved behind `--build-arg WITH_PACK=full`
@@ -56,7 +59,14 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
   resolution cannot reject it, and re-declares `BASE_IMAGE` inside the stage
   where the provenance stamp reads it.
 <!-- forge:changelog-changed -->
-- `DS_BOT_VERSION` moves to `0.1.7`.
+- `DSH_VERSION` moves to `0.2.1-rc.2` and `DS_BOT_VERSION` to `0.1.7`.
+- `dsh-shutup` is replaced by `dsh-authless` (MIT, commit `26fe680`): it removes the
+  launch-token gate by replacing the connection service's browser-auth owner, and leaves
+  the Host/Origin fence in place, so a foreign authority still gets 403 and
+  `--host 0.0.0.0` stays refused. `INSTALL_SHUTUP` / `SHUTUP_REPO` / `SHUTUP_COMMIT` /
+  `SHUTUP_SHA256` become `INSTALL_AUTHLESS` / `AUTHLESS_REPO` / `AUTHLESS_COMMIT` /
+  `AUTHLESS_SHA256`, and `/etc/dsbot-versions` reports `authless=` and
+  `authless_commit=`.
 - npm is upgraded to `NPM_VERSION` (default 12) before dsh is installed, and the
   dsh install passes `--allow-scripts` with the exact list the native modules
   need. The base image ships npm 10.9.8, which has no such option; the upstream
