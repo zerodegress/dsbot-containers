@@ -31,24 +31,27 @@ Two things are worth knowing:
 Provider keys are referenced by environment variable name (`apiKeyEnv`) and never
 written into the patch. Put the values in the secrets file.
 
-## The Bot's own layer
+## Where a patch can live
 
-`$DSH_HOME/patches/*.patch.yml` — `/data/patches/` in a container — is the Bot's own
-configuration layer: the entrypoint creates the directory on every start and passes every
-file in it to dsh in name order, **after the deployment layer and before the bundled
-plugins**. So a Bot can change what the base layer or the deployment layer set, without
-being able to touch the plugins the image pins (shutup, the login gate).
+There is no layer owned by the Bot. Configuration has exactly three entry points:
 
-Use it for anything the Bot decides for itself: a model choice, a tool setting, a
-plugin's config. The settings UI writes to `profiles/web/cordis.patch.yml` instead, which
-dsh composes *before* every `--patch` layer — a change made there loses to this one.
+| entry point | file | what belongs there |
+| --- | --- | --- |
+| settings UI | `$DSH_HOME/profiles/web/cordis.patch.yml` | anything the user tunes per instance |
+| image base | `dsh-layers/base-layer.patch.yml` | rows that must exist for the instance to run |
+| deployment | `/etc/dsbot/overlay.yml`, `/etc/dsbot/overlay/*.patch.yml` | providers, models, endpoints |
 
-```sh
-$DSH_HOME/patches/
-└── 10-my-settings.patch.yml   same format as an overlay patch
-```
+dsh composes the volume profile *before* every `--patch` layer, so a setting made in the
+UI loses to the image base and to the deployment whenever both write the same row.
 
-Patches are read at startup, so a new file takes effect on the next restart.
+Earlier images also created `$DSH_HOME/patches/` and passed its files to dsh after the
+deployment layer. That layer was removed: the agent's file sandbox grants only the
+session workspace, never `$DSH_HOME`, so nothing running in the container could ever
+write it — a layer nobody can write reads like an escape hatch but is a trap. If an
+instance needs a patch that is not part of the image or the deployment, add it to the
+deployment's `overlay/` directory and restart.
+
+Patches are read at startup, so any of the three takes effect on the next restart.
 
 ## Plugins
 

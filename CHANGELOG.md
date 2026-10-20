@@ -9,17 +9,20 @@ Image tags carry the DS Bot version the image was built against, so `0.1.6` is
 
 ## [Unreleased]
 
+### Removed
+
+- The Bot's own configuration layer (`$DSH_HOME/patches/*.patch.yml`). Nothing running
+  in the container could write it — the file sandbox grants only the session workspace —
+  so it was dead weight that read like an escape hatch. Configuration has three entry
+  points now: the settings UI, the image base and the deployment layer.
+
 ### Added
 
 <!-- forge:changelog-added -->
 - OCI image labels, so a registry listing describes the image on its own.
-- The Bot's own configuration layer: `$DSH_HOME/patches/*.patch.yml` is created on every
-  start and passed to dsh after the deployment layer and before the bundled plugins, so a
-  Bot can override the base and the deployment layers without touching what the image
-  pins. `docs/configuration.md` describes it.
 - A skill the image ships, `dsbot-self-config` (`/opt/dsh-skills/`): the layer stack,
-  where a patch has to live to win, the patch format's rules, and how to verify a change
-  with `--dump-config`.
+  the three places a patch can live, the patch format's rules, and how to verify a
+  change with `--dump-config`.
 - `scripts/entrypoint-test.mjs`: the entrypoint regression runs on temporary
   volumes with `--network none`, including the ds-bot shadowing and drift cases.
 - The image prints `/etc/dsbot-recipe` next to `/etc/dsbot-versions`: one line per

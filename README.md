@@ -47,7 +47,7 @@ podman logs dsbot | head            # prints the login token once
 | L1 | toolchain image (`dsbot-tools`) | `tools/Dockerfile` |
 | L2 | dsh + ds-bot + bundled plugins | `Dockerfile` |
 | L3 | deployment config: providers, models, plugins, any cordis patch | mounted at `/etc/dsbot/overlay`, read-only |
-| L4 | all state: profiles, bot data, sessions, memory; the Bot's own config layer (`patches/`) | the `/data` volume |
+| L4 | all state: profiles, bot data, sessions, memory | the `/data` volume |
 
 dsh applies the volume profile first, then the image base layer, the mounted overlay, the
 Bot's own patches in the volume, and finally the bundled plugins' patches: the deployment

@@ -65,10 +65,10 @@ registry). `podman exec dsbot dsbot-plugins sync --dry-run` shows what it would 
 
 **A setting changed in the UI has no effect.** A patch is overriding it: the settings UI
 writes the volume profile, and dsh composes that file before every `--patch` layer — the
-image base layer, the deployment layer, the Bot's own patches and the bundled plugins all
-come after it. `dsh --profile web --dump-config` prints the composed tree with the source
-file of each entry in a comment; a change that has to win belongs in the layer above
-(`/etc/dsbot/overlay/` for a deployment, `$DSH_HOME/patches/` for the Bot).
+image base layer, the deployment layer and the bundled plugins all come after it.
+`dsh --profile web --dump-config` prints the composed tree with the source file of each
+entry in a comment; a change that has to win belongs in the layer above it
+(`/etc/dsbot/overlay/` for a deployment, the image base for everyone else).
 
 **A plugin I removed came back after a restart.** It is declared in `plugins.txt`. Remove
 the line, or bake the plugin into the image if it must be permanent.

@@ -88,10 +88,14 @@ fi
 # Applied in this order, lowest first:
 #   image base layer              — the rows that must exist for the instance to run
 #   deployment layer (L3)         — what a deployment decides: providers, models
-#   $DSH_HOME/patches/*.patch.yml — what the Bot writes for itself, in the volume
 #   the bundled plugins' patches  — pinned, so nothing below can undo them
 # dsh still applies the volume profile (profiles/web/cordis.patch.yml, written by
 # the DSH settings UI) before any of these: that file sits at the bottom.
+#
+# There is deliberately NO layer owned by the Bot: it could never write one anyway
+# (the sandbox only grants the session workspace, never $DSH_HOME), and a layer
+# nobody can write is a trap that reads like an escape hatch. Configuration has
+# exactly three entry points: the settings UI, the image base, the deployment.
 set -- --profile web
 if [ -f /opt/dsh-layers/base-layer.patch.yml ]; then
     set -- "$@" --patch /opt/dsh-layers/base-layer.patch.yml
@@ -104,12 +108,6 @@ if [ -d /etc/dsbot/overlay ]; then
         set -- "$@" --patch "$p"
     done
 fi
-# The Bot's own layer: it lives in the volume, so the Bot may add, edit and
-# delete these files, and they outrank the base and deployment layers.
-mkdir -p "$DSH_HOME/patches"
-for p in $(ls -1 "$DSH_HOME/patches"/*.patch.yml 2>/dev/null | sort); do
-    set -- "$@" --patch "$p"
-done
 for f in /opt/dsh-plugins/dsh-shutup/cordis.patch.yml \
          /opt/dsh-plugins/dsh-auth-gate/cordis.patch.yml; do
     [ -f "$f" ] && set -- "$@" --patch "$f"

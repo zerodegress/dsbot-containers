@@ -30,12 +30,14 @@ dsh composes its plugin tree from several layers, and **later layers win**:
 3. image base layer — `dsh-layers/base-layer.patch.yml`
 4. deployment layer — `/etc/dsbot/overlay.yml` and `/etc/dsbot/overlay/*.patch.yml`,
    sorted by file name
-5. the Bot's own layer — `$DSH_HOME/patches/*.patch.yml`, sorted by file name
-6. the bundled plugins' own bundle patches — shutup and the login gate
+5. the bundled plugins' own bundle patches — shutup and the login gate
 
-The rule that follows: **the deployment layer may tune the base, and the Bot may tune
-both — but neither can undo the plugins the image bundles.** Layers 3–5 are the ones a
-container passes as `--patch`; layers 1–2 are what dsh itself composes before them, so
+There is no Bot-owned layer: the sandbox never grants `$DSH_HOME`, so a patch directory
+there could not be written by anything running in the container.
+
+The rule that follows: **the deployment layer may tune the base, but it cannot undo the
+plugins the image bundles.** Layers 3–4 are the ones a container passes as `--patch`;
+layers 1–2 are what dsh itself composes before them, so
 anything written to the volume profile loses to all of the above. Providers, default
 models, the web search provider and plugin choices belong to layer 4; a change the Bot
 makes for itself belongs to layer 5.
