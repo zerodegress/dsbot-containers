@@ -77,6 +77,8 @@ Image tags carry the DS Bot version the image was built against, so `0.1.7` is
   be a silent no-op. `STRICT_DS_BOT_VERSION=1` makes drift fatal.
 - `compose.yaml` sets `stop_grace_period: 30s` and documents the podman-socket
   group instead of leaving the mount unexplained.
+- The OCI `licenses` label is gone until the repository has a `LICENSE` file. It
+  claimed Apache-2.0; the tree does not back that claim.
 
 ### Fixed
 

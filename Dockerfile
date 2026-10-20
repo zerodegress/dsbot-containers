@@ -301,10 +301,12 @@ WORKDIR /data/bot/workspace
 # IMAGE_SOURCE is the OCI source label; it defaults to a placeholder, so a
 # deployment passes --build-arg IMAGE_SOURCE=<its own repository URL>.
 ARG IMAGE_SOURCE=https://github.com/your-org/dsbot-containers
+# No licenses label yet: the repository's own license is not decided, and a label
+# that names one before there is a LICENSE file states something the tree does not
+# back. Add it in the same change that adds the file.
 LABEL org.opencontainers.image.title="dsbot-containers" \
       org.opencontainers.image.description="DS Bot on DeepSeek Harness: dsh web plus the bundled authless and login-gate pair, non-root on a read-only root" \
-      org.opencontainers.image.source="${IMAGE_SOURCE}" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.source="${IMAGE_SOURCE}"
 
 VOLUME ["/data"]
 EXPOSE 3080
